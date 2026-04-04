@@ -1,6 +1,8 @@
 import { Request, Response } from "express";
 import { prisma } from "../lib/prisma.js";
 import bcrypt from "bcrypt";
+import jwt from "jsonwebtoken";
+import "dotenv/config";
 
 // Fungsi bantuan untuk membuat referral code acak
 const generateReferralCode = (name: string) => {
@@ -104,5 +106,68 @@ export const register = async (req: Request, res: Response): Promise<any> => {
   } catch (error) {
     console.error("Error saat register:", error);
     return res.status(500).json({ message: "Terjadi kesalahan pada server" });
+  }
+};
+
+// Fungsi login
+export const login = async (req: Request, res: Response) => {
+  console.log("Request masuk ke /login");
+  try {
+    // 1. Validasi apabila input kosong
+    const { email, password } = req.body;
+
+    // 2. Cari user di db berdasarka email atau passwor
+    if (!email || !password) {
+      return res
+        .status(400)
+        .json({ message: "Email dan paswword wajib diisi!" });
+    }
+    const user = await prisma.users.findUnique({ where: { email } });
+
+    //3. Jika user tidak ditemukan
+    if (!user) {
+      return res.status(401).json({ message: "Email atau password salah" });
+    }
+    // 4. Bandingkan password yg diinput dengan hash di database
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+
+    if (!isPasswordValid) {
+      return res.status(401).json({ message: "Email atau password salah" });
+    }
+
+    //5. Pastikan JWT_SECRRET ada, jika tidak, gunakan fallback (untuk dev)
+    const secretKey = process.env.JWT_SECRET;
+
+    // Kita pancing dia untuk ngomong ke terminal
+    console.log("Isi Secret di Controller:", secretKey);
+    if (!secretKey) {
+      throw new Error("JWT_SECRET belum diatur di file .env");
+    }
+
+    //6. Generate token JWT (isinya payload id dan role)
+    const tokenPayload = {
+      id: user.id,
+      role: user.role,
+    };
+
+    const token = jwt.sign(tokenPayload, secretKey, {
+      expiresIn: "1d", // Token berlaku selama 1 hari
+    });
+
+    // 7. Return response sukses ke frontend
+    return res.status(200).json({
+      message: "Login berhasil!",
+      token,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        referral_code: user.referral_code,
+      },
+    });
+  } catch (error) {
+    console.error("Login Error:", error);
+    res.status(500).json({ message: "Terjadi kesalahan pada server" });
   }
 };
