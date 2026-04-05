@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { prisma } from "../lib/prisma.js";
 import bcrypt from "bcrypt";
+import jwt from "jsonwebtoken";
 
 // Fungsi bantuan untuk membuat referral code acak
 const generateReferralCode = (name: string) => {
@@ -104,5 +105,50 @@ export const register = async (req: Request, res: Response): Promise<any> => {
   } catch (error) {
     console.error("Error saat register:", error);
     return res.status(500).json({ message: "Terjadi kesalahan pada server" });
+  }
+};
+
+export const login = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const { email, password } = req.body;
+
+    // 1. Cari user berdasarkan email di database
+    const user = await prisma.users.findUnique({
+      where: { email },
+    });
+
+    if (!user) {
+      return res.status(404).json({ message: "Email tidak terdaftar!" });
+    }
+
+    // 2. Cocokkan password yang diinput dengan password di database
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+
+    if (!isPasswordValid) {
+      return res.status(401).json({ message: "Password salah!" });
+    }
+
+    // 3. Buat tiket JWT (Satpam)
+    // Pastikan Anda sudah punya JWT_SECRET di file .env
+    const token = jwt.sign(
+      { id: user.id, role: user.role },
+      process.env.JWT_SECRET as string,
+      { expiresIn: "1d" }, // Token berlaku 1 hari
+    );
+
+    // 4. Kirim respons sukses beserta token dan data user
+    return res.status(200).json({
+      message: "Login berhasil!",
+      token,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+      },
+    });
+  } catch (error) {
+    console.error("Login Error:", error);
+    return res.status(500).json({ message: "Terjadi kesalahan saat login" });
   }
 };

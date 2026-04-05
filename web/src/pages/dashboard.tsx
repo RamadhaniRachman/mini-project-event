@@ -39,6 +39,7 @@ export default function Dashboard() {
     totalTicketsSold: 0,
   });
   const [events, setEvents] = useState<EventData[]>([]);
+
   // State untuk create event
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -54,7 +55,7 @@ export default function Dashboard() {
     is_free: false,
   });
 
-  // State khusus tiket (sementara kita buat default 1 tipe tiket dulu)
+  // State khusus tiket
   const [ticketForm, setTicketForm] = useState({
     name: "Reguler",
     price: 0,
@@ -85,9 +86,9 @@ export default function Dashboard() {
       console.error(error);
     }
   };
+
   // 3. FORMATTER
   const formatRupiah = (angka: number) => {
-    // Memperpendek angka jutaan (contoh: 4.500.000 -> 4.5M) agar pas di UI
     if (angka >= 1000000) return `Rp ${(angka / 1000000).toFixed(1)}M`;
     return new Intl.NumberFormat("id-ID", {
       style: "currency",
@@ -126,7 +127,6 @@ export default function Dashboard() {
 
         setUser(userData);
 
-        // Fetching Data dari API secara bersamaan
         const headers = {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
@@ -165,25 +165,22 @@ export default function Dashboard() {
       </div>
     );
   }
-  // 5. FUNGSI
-  // Submit event baru
-  const handleCreateEvent = async (e: React.SubmitEvent) => {
+
+  // 5. FUNGSI SUBMIT (Diperbaiki: Menggunakan React.FormEvent)
+  const handleCreateEvent = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
 
     try {
       const token = localStorage.getItem("token");
 
-      // Gabungkan tanggal dan waktu agar sesuai format ISO Prisma
       const combinedDateTime = new Date(
         `${eventForm.event_date}T${eventForm.event_time}:00`,
       ).toISOString();
       const isoDate = new Date(eventForm.event_date).toISOString();
 
-      // FormData
       const formData = new FormData();
 
-      // Memasukkan semua data teks ke dalam FormData
       formData.append("title", eventForm.title);
       formData.append("description", eventForm.description);
       formData.append("location", eventForm.location);
@@ -192,7 +189,6 @@ export default function Dashboard() {
       formData.append("event_time", combinedDateTime);
       formData.append("is_free", String(eventForm.is_free));
 
-      // Stringify tiket karena backend (multer) membaca semuanya sebagai string
       const ticketData = [
         {
           name: ticketForm.name,
@@ -202,18 +198,13 @@ export default function Dashboard() {
       ];
       formData.append("tickets", JSON.stringify(ticketData));
 
-      // Masukkan file gambar jika user memilihnya
       if (imageFile) {
-        // Nama 'image' ini harus sama persis dengan upload.single('image') di backend
         formData.append("image", imageFile);
       }
 
-      //Kirim fetch request
       const response = await fetch("http://localhost:8000/api/events/create", {
         method: "POST",
         headers: {
-          // JANGAN tulis "Content-Type": "multipart/form-data" di sini.
-          // Browser akan otomatis menambahkannya beserta kode "boundary" acak.
           Authorization: `Bearer ${token}`,
         },
         body: formData,
@@ -221,10 +212,9 @@ export default function Dashboard() {
 
       if (response.ok) {
         alert("Event berhasil dibuat! 🚀");
-        setIsModalOpen(false); // Tutup modal
-        refreshData(); // Panggil ulang API agar Dashboard ter-update
+        setIsModalOpen(false);
+        refreshData();
 
-        // Kosongkan form kembali
         setEventForm({
           title: "",
           description: "",
@@ -278,7 +268,6 @@ export default function Dashboard() {
         </div>
 
         <nav className="flex-1 px-4 space-y-2">
-          {/* Menu navigasi dibiarkan statis sesuai desain awal */}
           <a
             className="flex items-center gap-4 px-4 py-3.5 text-soft-pink bg-soft-pink/10 border-r-4 border-soft-pink font-semibold transition-all"
             href="#"
@@ -297,7 +286,6 @@ export default function Dashboard() {
               My Events
             </span>
           </a>
-          {/* ... (Menu lainnya tetap sama) */}
         </nav>
 
         <div className="px-4 mt-auto space-y-2">
@@ -355,7 +343,6 @@ export default function Dashboard() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              {/* Box 1: Pendapatan */}
               <div className="bg-dark-gray p-6 rounded-xl space-y-4 hover:bg-charcoal border border-white/5 transition-all group">
                 <div className="flex justify-between items-start">
                   <div className="p-3 rounded-lg bg-soft-pink/10 text-soft-pink group-hover:scale-110 transition-transform">
@@ -372,7 +359,6 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              {/* Box 2: Tiket */}
               <div className="bg-dark-gray p-6 rounded-xl space-y-4 hover:bg-charcoal border border-white/5 transition-all group">
                 <div className="flex justify-between items-start">
                   <div className="p-3 rounded-lg bg-soft-pink/10 text-soft-pink group-hover:scale-110 transition-transform">
@@ -391,7 +377,6 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              {/* Box 3: Event Aktif */}
               <div className="bg-dark-gray p-6 rounded-xl space-y-4 hover:bg-charcoal border border-white/5 transition-all group">
                 <div className="flex justify-between items-start">
                   <div className="p-3 rounded-lg bg-soft-pink/10 text-soft-pink group-hover:scale-110 transition-transform">
@@ -411,7 +396,6 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              {/* Box 4: Statis Dummy */}
               <div className="bg-dark-gray p-6 rounded-xl space-y-4 hover:bg-charcoal border border-white/5 transition-all group">
                 <div className="flex justify-between items-start">
                   <div className="p-3 rounded-lg bg-soft-pink/10 text-soft-pink group-hover:scale-110 transition-transform">
@@ -433,9 +417,6 @@ export default function Dashboard() {
             </div>
           </section>
 
-          {/* Section 2: Data Visualization (Dibiarkan Statis) */}
-          {/* ... (Visualisasi Grafik dan Kapasitas Venue tetap ada di sini) ... */}
-
           {/* --- SECTION 3: MY EVENTS GRID DINAMIS --- */}
           <section className="space-y-6">
             <div className="flex items-center justify-between">
@@ -450,21 +431,18 @@ export default function Dashboard() {
                   Anda belum membuat event apapun.
                 </div>
               ) : (
-                events.map((event, index) => {
-                  // Fallback gambar cantik agar UI tetap terlihat hidup
+                events.map((event) => {
                   const images = [
                     "https://images.unsplash.com/photo-1540039155732-684735035727?auto=format&fit=crop&q=80&w=800",
-                    "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&q=80&w=800",
-                    "https://images.unsplash.com/photo-1459749411175-04bf5292ceea?auto=format&fit=crop&q=80&w=800",
                   ];
 
-                  // Menghitung total kapasitas kursi dari seluruh jenis tiket
-                  const totalCapacity = event.tickets.reduce(
-                    (acc, curr) => acc + curr.available_seats,
-                    0,
-                  );
+                  // Tanda tanya (?) ditambahkan sebagai pelindung anti layar putih
+                  const totalCapacity =
+                    event.tickets?.reduce(
+                      (acc, curr) => acc + curr.available_seats,
+                      0,
+                    ) || 0;
 
-                  // variabel mendeteksi sudah sold out atau belum
                   const isSoldOut = totalCapacity === 0;
 
                   return (
@@ -478,8 +456,8 @@ export default function Dashboard() {
                           alt="Event background"
                           src={
                             event.image_url
-                              ? `http://localhost:8000${event.image_url}` // Jika ada di DB, tempelkan alamat Backend
-                              : "https://images.unsplash.com/photo-1540039155732-684735035727..." // Gambar Fallback (Unsplash)
+                              ? `http://localhost:8000${event.image_url}`
+                              : images[0]
                           }
                         />
                         <div className="absolute inset-0 bg-gradient-to-t from-dark-gray via-transparent to-transparent"></div>
@@ -514,7 +492,9 @@ export default function Dashboard() {
                             <p className="text-[10px] text-white/70 font-label uppercase tracking-widest">
                               Kapasitas
                             </p>
-                            <p className="text-sm font-bold">
+                            <p
+                              className={`text-sm font-bold ${isSoldOut ? "text-red-400" : "text-white"}`}
+                            >
                               {totalCapacity} Kursi
                             </p>
                           </div>
@@ -523,7 +503,7 @@ export default function Dashboard() {
                               Tipe Tiket
                             </p>
                             <p className="text-sm font-bold text-soft-pink text-right">
-                              {event.tickets.length} Varian
+                              {event.tickets?.length || 0} Varian
                             </p>
                           </div>
                         </div>
@@ -536,6 +516,7 @@ export default function Dashboard() {
           </section>
         </div>
       </main>
+
       {/* --- MODAL CREATE EVENT --- */}
       {isModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-charcoal/80 backdrop-blur-sm p-4">
@@ -619,7 +600,6 @@ export default function Dashboard() {
                     className="w-full bg-charcoal border border-white/10 rounded-lg px-4 py-2 text-white focus:border-soft-pink focus:outline-none h-20"
                   />
                 </div>
-                {/* --- TAMBAHKAN KOLOM UPLOAD GAMBAR INI --- */}
                 <div className="space-y-1 md:col-span-2">
                   <label className="text-xs text-white/60 font-label uppercase tracking-widest">
                     Poster Event (Opsional)
@@ -634,13 +614,7 @@ export default function Dashboard() {
                     }}
                     className="w-full bg-charcoal border border-white/10 rounded-lg px-4 py-2 text-white focus:outline-none file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-soft-pink file:text-charcoal hover:file:bg-soft-pink/80 cursor-pointer text-sm"
                   />
-                  {imageFile && (
-                    <p className="text-xs text-green-400 mt-1">
-                      File terpilih: {imageFile.name}
-                    </p>
-                  )}
                 </div>
-                {/* ----------------------------------------- */}
                 <div className="space-y-1">
                   <label className="text-xs text-white/60 font-label uppercase tracking-widest">
                     Tanggal
@@ -691,7 +665,6 @@ export default function Dashboard() {
                         setTicketForm({ ...ticketForm, name: e.target.value })
                       }
                       className="w-full bg-dark-gray border border-white/10 rounded-lg px-4 py-2 text-sm text-white focus:border-soft-pink focus:outline-none"
-                      placeholder="Misal: VIP"
                     />
                   </div>
                   <div className="space-y-1">
