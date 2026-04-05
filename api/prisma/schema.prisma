@@ -31,10 +31,11 @@ model events {
   event_time   DateTime       @db.Timetz(6)
   is_free      Boolean        @default(false)
   organizer_id Int
+  image_url    String?
   users        users          @relation(fields: [organizer_id], references: [id])
   promotions   promotions[]
   reviews      reviews[]
-  tickets      ticket[]
+  tickets      tickets[]
   transactions transactions[]
 }
 
@@ -97,7 +98,7 @@ model transactions {
   user           users       @relation(fields: [customer_id], references: [id])
   event          events      @relation(fields: [event_id], references: [id])
   promo          promotions? @relation(fields: [promo_id], references: [id])
-  ticket_type    ticket      @relation(fields: [ticket_type_id], references: [id])
+  ticket_type    tickets     @relation(fields: [ticket_type_id], references: [id])
 }
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
@@ -121,13 +122,13 @@ model users {
 }
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
-model ticket {
-  id               Int            @id @default(autoincrement())
-  created_at       DateTime       @default(now()) @db.Timestamptz(6)
-  name             String         @db.VarChar
-  price            Int
-  availaible_seats Int
-  event_id         Int
-  event            events         @relation(fields: [event_id], references: [id])
-  transactions     transactions[]
+model tickets {
+  id              Int            @id @default(autoincrement())
+  created_at      DateTime       @default(now()) @db.Timestamptz(6)
+  name            String         @db.VarChar
+  price           Int
+  available_seats Int
+  event_id        Int
+  event           events         @relation(fields: [event_id], references: [id])
+  transactions    transactions[]
 }
