@@ -58,6 +58,7 @@ export const register = async (req: Request, res: Response): Promise<any> => {
           referral_code: newReferralCode,
           referred_by_id: referrerId, // Langsung pakai nama kolom
         },
+        omit: { password }, // Menambahkan omit
       });
 
       // b. Distribusi reward (Hanya berlaku jika ada referrerID)
