@@ -33,7 +33,7 @@ export const getDashboardStats = async (
       stats: {
         totalEvents: eventCount,
         totalRevenue: transactionData._sum.final_price || 0,
-        totalTicketSold: transactionData._sum.quantity || 0,
+        totalTicketsSold: transactionData._sum.quantity || 0,
       },
     });
   } catch (error) {
