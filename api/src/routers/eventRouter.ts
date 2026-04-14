@@ -9,7 +9,7 @@ import { upload } from "../middleware/uploadMiddleware.js";
 const router = express.Router();
 
 // Semua rute memerlukan login (authorization bearer token)
-router.post("/create", verifyToken, upload.single("image"), createEvent);
+router.post("/", verifyToken, upload.single("image"), createEvent);
 
 // menyisipkan upload.single ("image") sebelum createEvent
 // "image" adalah nama key yg akan dikirim dari frontend/postnam

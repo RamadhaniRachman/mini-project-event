@@ -302,7 +302,9 @@ export default function DashboardOverview() {
                 ) || 0;
               const isSoldOut = totalCapacity === 0;
               const imageSrc = event.image_url
-                ? `http://localhost:8000${event.image_url}`
+                ? event.image_url.startsWith("http")
+                  ? event.image_url
+                  : `http://localhost:8000${event.image_url}`
                 : "https://images.unsplash.com/photo-1540039155732-684735035727?auto=format&fit=crop&q=80&w=800";
 
               return (

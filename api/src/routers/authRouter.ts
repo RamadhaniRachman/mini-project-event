@@ -10,6 +10,7 @@ router.post("/login", login);
 
 // --- PROTECTED ROUTES (Butuh token JWT valid) ---
 // Rute ini menggunakan verifyToken sebagai middleware penengah
+// Di bawah ini untuk menentukan role
 router.get(
   "/profile",
   verifyToken,

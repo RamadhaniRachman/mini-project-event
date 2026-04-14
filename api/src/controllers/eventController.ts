@@ -48,6 +48,10 @@ export const createEvent = async (
   res: Response,
 ): Promise<any> => {
   try {
+    console.log("=== 1. REQUEST MASUK ===");
+    console.log("Data Body (Teks):", req.body);
+    console.log("Data File (Foto):", req.file);
+
     const organizerId = req.user.id;
     const {
       title,
@@ -62,7 +66,7 @@ export const createEvent = async (
 
     // Ambil url gambar dari multer
     // Jika ada file yg diupload maka buat url nya. Jika gk ada maka kosongkan (null)
-    const imageUrl = req.file ? `/uploads/${req.file.filename}` : null;
+    const imageUrl = req.file ? req.file.path : null;
 
     // Parsing multipart data (biar is_free dan tickets tidak ikut ke parse jadi string sma multer)
     // mengubah string "false"/"true" kembali menjadi boolean asli
@@ -80,8 +84,12 @@ export const createEvent = async (
           description,
           location,
           category,
+          // event_date cukup dimasukkan langsung karena formatnya sudah "YYYY-MM-DD"
           event_date: new Date(event_date),
-          event_time: new Date(event_time),
+
+          // event_time digabung dulu dengan tanggal agar JS paham
+          // Formatnya akan menjadi "2026-05-09T12:49:00"
+          event_time: new Date(`${event_date}T${event_time}:00`),
           is_free: parsedIsFree,
           organizer_id: organizerId,
           image_url: imageUrl,

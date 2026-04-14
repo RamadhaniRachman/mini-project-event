@@ -7,6 +7,8 @@ import DashboardOverview from "./components/dashboardOverview";
 import Transactions from "./components/transaction";
 import MyEvents from "./components/myEvent";
 import Reports from "./components/report";
+import CreateEvent from "./components/createEvent";
+
 // Buat komponen Home sementara (atau import dari pages/home jika sudah ada)
 const Home = () => (
   <div className="min-h-screen bg-charcoal flex justify-center items-center text-white font-headline text-2xl">
@@ -32,6 +34,7 @@ export default function App() {
                 {/* /dashboard/transactions */}
                 <Route path="events" element={<MyEvents />} />
                 <Route path="reports" element={<Reports />} />
+                <Route path="create-event" element={<CreateEvent />} />
               </Route>
               <Route path="*" element={<Navigate to="/login" replace />} />{" "}
             </Routes>
