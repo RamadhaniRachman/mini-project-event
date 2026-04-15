@@ -21,7 +21,6 @@ export default function CreateEvent() {
   const [tickets, setTickets] = useState([
     { name: "Reguler", price: 0, available_seats: 0 },
     { name: "VIP", price: 0, available_seats: 0 },
-    { name: "Gratis", price: 0, available_seats: 0 },
   ]);
 
   // 3. State khusus untuk File Gambar dan Preview-nya

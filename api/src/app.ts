@@ -22,6 +22,12 @@ app.listen(PORT, () => {
     "Database URL:",
     process.env.DATABASE_URL ? "Terbaca! ✅" : "Belum terbaca ❌",
   );
+  console.log(
+    "JWT Secret   :",
+    process.env.JWT_SECRET
+      ? "Terbaca! ✅ (Aman)"
+      : "Belum terbaca ❌ (Bahaya!)",
+  );
 });
 
 export default app;
