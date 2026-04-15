@@ -274,10 +274,10 @@ export default function DashboardOverview() {
             Event Saya
           </h3>
           <Link
-            to="/events"
+            to="/dashboard/events"
             className="text-soft-pink text-xs font-bold uppercase tracking-widest flex items-center gap-2 hover:underline"
           >
-            Lihat Semua{" "}
+            Lihat Semua
             <span className="material-symbols-outlined text-sm">
               arrow_forward
             </span>

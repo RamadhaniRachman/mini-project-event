@@ -19,7 +19,9 @@ export default function CreateEvent() {
 
   // 2. State khusus untuk Tiket (Bisa tambah/kurang tipe tiket)
   const [tickets, setTickets] = useState([
-    { name: "Reguler", price: 0, available_seats: 100 },
+    { name: "Reguler", price: 0, available_seats: 0 },
+    { name: "VIP", price: 0, available_seats: 0 },
+    { name: "Gratis", price: 0, available_seats: 0 },
   ]);
 
   // 3. State khusus untuk File Gambar dan Preview-nya
@@ -42,13 +44,16 @@ export default function CreateEvent() {
   };
 
   // --- HANDLER UNTUK TIKET ---
-  const handleTicketChange = (
-    index: number,
-    field: string,
-    value: string | number,
-  ) => {
+  const handleTicketChange = (index: number, field: string, value: string) => {
     const newTickets = [...tickets];
-    newTickets[index] = { ...newTickets[index], [field]: value };
+    const updatedValue =
+      field === "price" || field === "available_seats"
+        ? value === ""
+          ? 0
+          : Number(value)
+        : value;
+
+    newTickets[index] = { ...newTickets[index], [field]: updatedValue };
     setTickets(newTickets);
   };
 
@@ -209,10 +214,9 @@ export default function CreateEvent() {
               onChange={handleInputChange}
               className="w-full bg-charcoal border border-white/10 rounded-lg p-3 text-white focus:outline-none focus:border-soft-pink"
             >
-              <option value="Music">Musik</option>
-              <option value="Theater">Teater</option>
-              <option value="Standup">Standup Comedy</option>
-              <option value="Seminar">Seminar</option>
+              <option value="Konser">Konser</option>
+              <option value="Fan Event">Fan Event</option>
+              <option value="Festival">Festival</option>
             </select>
           </div>
           <div className="space-y-2">
@@ -271,10 +275,17 @@ export default function CreateEvent() {
         </div>
 
         {/* --- SECTION 3: TICKETING --- */}
-        <div className="p-6 bg-charcoal rounded-xl border border-white/5 space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="font-bold text-soft-pink">Pengaturan Tiket</h3>
-            <label className="flex items-center gap-2 cursor-pointer">
+        {/* Bagian TICKETING di dalam Return */}
+        <div className="p-6 bg-charcoal rounded-xl border border-white/5 space-y-6">
+          <div className="flex items-center justify-between border-b border-white/10 pb-4">
+            <h3 className="font-bold text-soft-pink flex items-center gap-2">
+              <span className="material-symbols-outlined">
+                confirmation_number
+              </span>
+              Kategori Tiket
+            </h3>
+            {/* Status Gratis tetap ada untuk kontrol global jika perlu */}
+            <label className="flex items-center gap-2 cursor-pointer group">
               <input
                 type="checkbox"
                 name="is_free"
@@ -282,61 +293,73 @@ export default function CreateEvent() {
                 onChange={handleInputChange}
                 className="accent-soft-pink w-4 h-4"
               />
-              <span className="text-sm font-medium text-white/80">
-                Event Gratis?
+              <span className="text-xs font-bold text-white/40 group-hover:text-soft-pink uppercase tracking-widest transition-colors">
+                Set Semua Gratis
               </span>
             </label>
           </div>
 
-          {/* Untuk tes awal, kita pakai 1 tier tiket dulu */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="space-y-2">
-              <label className="text-[10px] font-bold text-white/40 uppercase tracking-widest">
-                Nama Tiket
-              </label>
-              <input
-                required
-                value={tickets[0].name}
-                onChange={(e) => handleTicketChange(0, "name", e.target.value)}
-                className="w-full bg-dark-gray border border-white/10 rounded-lg p-3 text-white text-sm"
-                placeholder="Contoh: VIP"
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-[10px] font-bold text-white/40 uppercase tracking-widest">
-                Harga (Rp)
-              </label>
-              <input
-                required
-                type="number"
-                disabled={formData.is_free}
-                value={formData.is_free ? 0 : tickets[0].price}
-                onChange={(e) =>
-                  handleTicketChange(0, "price", Number(e.target.value))
-                }
-                className="w-full bg-dark-gray border border-white/10 rounded-lg p-3 text-white text-sm disabled:opacity-50"
-                min="0"
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-[10px] font-bold text-white/40 uppercase tracking-widest">
-                Kapasitas
-              </label>
-              <input
-                required
-                type="number"
-                value={tickets[0].available_seats}
-                onChange={(e) =>
-                  handleTicketChange(
-                    0,
-                    "available_seats",
-                    Number(e.target.value),
-                  )
-                }
-                className="w-full bg-dark-gray border border-white/10 rounded-lg p-3 text-white text-sm"
-                min="1"
-              />
-            </div>
+          <div className="space-y-6">
+            {tickets.map((ticket, index) => (
+              <div
+                key={index}
+                className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-dark-gray/50 rounded-lg border border-white/5"
+              >
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold text-white/40 uppercase tracking-widest">
+                    Tipe Tiket
+                  </label>
+                  <input
+                    readOnly // Biar user nggak ubah nama kategori defaultnya
+                    value={ticket.name}
+                    className="w-full bg-charcoal border border-white/5 rounded-lg p-3 text-soft-pink text-sm font-bold outline-none"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold text-white/40 uppercase tracking-widest">
+                    Harga (Rp)
+                  </label>
+                  <input
+                    type="number"
+                    disabled={formData.is_free}
+                    value={
+                      formData.is_free
+                        ? 0
+                        : ticket.price === 0
+                          ? ""
+                          : ticket.price
+                    }
+                    onChange={(e) =>
+                      handleTicketChange(index, "price", e.target.value)
+                    }
+                    className="w-full bg-charcoal border border-white/10 rounded-lg p-3 text-white text-sm disabled:opacity-30 focus:border-soft-pink outline-none"
+                    placeholder="0"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold text-white/40 uppercase tracking-widest">
+                    Kapasitas (Kursi)
+                  </label>
+                  <input
+                    type="number"
+                    value={
+                      ticket.available_seats === 0 ? "" : ticket.available_seats
+                    }
+                    onChange={(e) =>
+                      handleTicketChange(
+                        index,
+                        "available_seats",
+                        e.target.value,
+                      )
+                    }
+                    className="w-full bg-charcoal border border-white/10 rounded-lg p-3 text-white text-sm focus:border-soft-pink outline-none"
+                    placeholder="0"
+                  />
+                </div>
+              </div>
+            ))}
           </div>
         </div>
 
@@ -353,7 +376,7 @@ export default function CreateEvent() {
               Memproses...
             </>
           ) : (
-            "🚀 Orbitkan Event!"
+            "Buat Event!"
           )}
         </button>
       </form>
