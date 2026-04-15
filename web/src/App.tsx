@@ -7,14 +7,10 @@ import DashboardOverview from "./components/dashboardOverview";
 import Transactions from "./components/transaction";
 import MyEvents from "./components/myEvent";
 import Reports from "./components/report";
+import Home from "./pages/home";
 import CreateEvent from "./components/createEvent";
 
 // Buat komponen Home sementara (atau import dari pages/home jika sudah ada)
-const Home = () => (
-  <div className="min-h-screen bg-charcoal flex justify-center items-center text-white font-headline text-2xl">
-    Ini Halaman Beranda (Customer)
-  </div>
-);
 
 export default function App() {
   return (
