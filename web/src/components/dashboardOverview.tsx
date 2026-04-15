@@ -274,10 +274,10 @@ export default function DashboardOverview() {
             Event Saya
           </h3>
           <Link
-            to="/events"
+            to="/dashboard/events"
             className="text-soft-pink text-xs font-bold uppercase tracking-widest flex items-center gap-2 hover:underline"
           >
-            Lihat Semua{" "}
+            Lihat Semua
             <span className="material-symbols-outlined text-sm">
               arrow_forward
             </span>
@@ -302,7 +302,9 @@ export default function DashboardOverview() {
                 ) || 0;
               const isSoldOut = totalCapacity === 0;
               const imageSrc = event.image_url
-                ? `http://localhost:8000${event.image_url}`
+                ? event.image_url.startsWith("http")
+                  ? event.image_url
+                  : `http://localhost:8000${event.image_url}`
                 : "https://images.unsplash.com/photo-1540039155732-684735035727?auto=format&fit=crop&q=80&w=800";
 
               return (

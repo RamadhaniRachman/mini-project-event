@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 
 // 1. Definisikan bentuk data dari Backend
 interface Ticket {
@@ -78,7 +79,10 @@ export default function MyEvents() {
             <span className="material-symbols-outlined">download</span>
             <span>Laporan Penjualan</span>
           </button>
-          <button className="px-8 py-3 rounded-xl stage-gradient text-charcoal font-extrabold flex items-center justify-center gap-2 shadow-lg shadow-soft-pink/10 active:scale-95 transition-all">
+          <Link
+            to="/dashboard/create-event"
+            className="px-8 py-3 rounded-xl stage-gradient text-charcoal font-extrabold flex items-center justify-center gap-2 shadow-lg shadow-soft-pink/10 active:scale-95 transition-all"
+          >
             <span
               className="material-symbols-outlined"
               style={{ fontVariationSettings: "'FILL' 1" }}
@@ -86,7 +90,7 @@ export default function MyEvents() {
               add
             </span>
             <span>Buat Event Baru</span>
-          </button>
+          </Link>
         </div>
       </section>
 
@@ -138,7 +142,9 @@ export default function MyEvents() {
               ) || 0;
             const isSoldOut = totalCapacity === 0;
             const imageSrc = event.image_url
-              ? `http://localhost:8000${event.image_url}`
+              ? event.image_url.startsWith("http")
+                ? event.image_url
+                : `http://localhost:8000${event.image_url}`
               : "https://images.unsplash.com/photo-1540039155732-684735035727?auto=format&fit=crop&q=80&w=800";
 
             // Jika ini adalah event pertama di array (index 0), pakai desain BESAR (Highlight)
