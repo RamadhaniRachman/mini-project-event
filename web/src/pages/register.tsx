@@ -86,7 +86,11 @@ export default function Register() {
                   Pilih Peran Anda
                 </label>
                 <div className="grid grid-cols-2 gap-4">
+<<<<<<< HEAD
+                  <label className="relative flex items-center justify-center p-4 rounded-lg bg-charcoal cursor-pointer border border-transparent hover:border-soft-pink/30 transition-all group has-checked:bg-soft-pink/10 has-checked:border-soft-pink">
+=======
                   <label className="relative flex items-center justify-center p-4 rounded-lg bg-charcoal cursor-pointer border border-transparent hover:border-soft-pink/30 transition-all group has-[:checked]:bg-soft-pink/10 has-[:checked]:border-soft-pink">
+>>>>>>> fa64156671a963d11307c33f8bf1d9231565110f
                     <input
                       checked={role === "customer"}
                       className="sr-only peer"
@@ -104,7 +108,11 @@ export default function Register() {
                       </span>
                     </div>
                   </label>
+<<<<<<< HEAD
+                  <label className="relative flex items-center justify-center p-4 rounded-lg bg-charcoal cursor-pointer border border-transparent hover:border-soft-pink/30 transition-all group has-checked:bg-soft-pink/10 has-checked:border-soft-pink">
+=======
                   <label className="relative flex items-center justify-center p-4 rounded-lg bg-charcoal cursor-pointer border border-transparent hover:border-soft-pink/30 transition-all group has-[:checked]:bg-soft-pink/10 has-[:checked]:border-soft-pink">
+>>>>>>> fa64156671a963d11307c33f8bf1d9231565110f
                     <input
                       checked={role === "organizer"}
                       className="sr-only peer"

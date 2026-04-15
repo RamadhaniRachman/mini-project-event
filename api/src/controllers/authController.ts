@@ -2,7 +2,6 @@ import { Request, Response } from "express";
 import { prisma } from "../lib/prisma.js";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
-import "dotenv/config";
 
 // Fungsi bantuan untuk membuat referral code acak
 const generateReferralCode = (name: string) => {
@@ -59,6 +58,7 @@ export const register = async (req: Request, res: Response): Promise<any> => {
           referral_code: newReferralCode,
           referred_by_id: referrerId, // Langsung pakai nama kolom
         },
+        omit: { password }, // Menambahkan omit
       });
 
       // b. Distribusi reward (Hanya berlaku jika ada referrerID)
@@ -109,52 +109,35 @@ export const register = async (req: Request, res: Response): Promise<any> => {
   }
 };
 
-// Fungsi login
-export const login = async (req: Request, res: Response) => {
-  console.log("Request masuk ke /login");
+export const login = async (req: Request, res: Response): Promise<any> => {
   try {
-    // 1. Validasi apabila input kosong
     const { email, password } = req.body;
 
-    // 2. Cari user di db berdasarka email atau passwor
-    if (!email || !password) {
-      return res
-        .status(400)
-        .json({ message: "Email dan paswword wajib diisi!" });
-    }
-    const user = await prisma.users.findUnique({ where: { email } });
+    // 1. Cari user berdasarkan email di database
+    const user = await prisma.users.findUnique({
+      where: { email },
+    });
 
-    //3. Jika user tidak ditemukan
     if (!user) {
-      return res.status(401).json({ message: "Email atau password salah" });
+      return res.status(404).json({ message: "Email tidak terdaftar!" });
     }
-    // 4. Bandingkan password yg diinput dengan hash di database
+
+    // 2. Cocokkan password yang diinput dengan password di database
     const isPasswordValid = await bcrypt.compare(password, user.password);
 
     if (!isPasswordValid) {
-      return res.status(401).json({ message: "Email atau password salah" });
+      return res.status(401).json({ message: "Password salah!" });
     }
 
-    //5. Pastikan JWT_SECRRET ada, jika tidak, gunakan fallback (untuk dev)
-    const secretKey = process.env.JWT_SECRET;
+    // 3. Buat tiket JWT (Satpam)
+    // Pastikan Anda sudah punya JWT_SECRET di file .env
+    const token = jwt.sign(
+      { id: user.id, role: user.role },
+      process.env.JWT_SECRET as string,
+      { expiresIn: "1d" }, // Token berlaku 1 hari
+    );
 
-    // Kita pancing dia untuk ngomong ke terminal
-    console.log("Isi Secret di Controller:", secretKey);
-    if (!secretKey) {
-      throw new Error("JWT_SECRET belum diatur di file .env");
-    }
-
-    //6. Generate token JWT (isinya payload id dan role)
-    const tokenPayload = {
-      id: user.id,
-      role: user.role,
-    };
-
-    const token = jwt.sign(tokenPayload, secretKey, {
-      expiresIn: "1d", // Token berlaku selama 1 hari
-    });
-
-    // 7. Return response sukses ke frontend
+    // 4. Kirim respons sukses beserta token dan data user
     return res.status(200).json({
       message: "Login berhasil!",
       token,
@@ -163,11 +146,10 @@ export const login = async (req: Request, res: Response) => {
         name: user.name,
         email: user.email,
         role: user.role,
-        referral_code: user.referral_code,
       },
     });
   } catch (error) {
     console.error("Login Error:", error);
-    res.status(500).json({ message: "Terjadi kesalahan pada server" });
+    return res.status(500).json({ message: "Terjadi kesalahan saat login" });
   }
 };

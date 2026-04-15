@@ -39,7 +39,7 @@ export default function Login() {
       localStorage.setItem("user", JSON.stringify(data.user));
       // -----------------------------
 
-      // 4. Beri jeda sedikit agar pesan sukses terbaca, lalu arahkan sesuai Role
+      // Beri jeda sedikit agar pesan sukses terbaca, lalu arahkan sesuai Role
       setTimeout(() => {
         // Ambil role, ubah jadi string, lalu paksa jadi huruf kecil
         const userRole = String(data.user.role || "").toLowerCase();

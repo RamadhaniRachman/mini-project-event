@@ -1,6 +1,6 @@
 import express from "express";
 import { register, login } from "../controllers/authController.js";
-import { verifyToken, CustomRequest } from "../controllers/authMiddleware.js";
+import { verifyToken, CustomRequest } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
@@ -10,6 +10,7 @@ router.post("/login", login);
 
 // --- PROTECTED ROUTES (Butuh token JWT valid) ---
 // Rute ini menggunakan verifyToken sebagai middleware penengah
+// Di bawah ini untuk menentukan role
 router.get(
   "/profile",
   verifyToken,
