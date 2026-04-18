@@ -1,6 +1,7 @@
 import React, { useState } from "react";
-
+import { useNavigate } from "react-router-dom";
 export default function Register() {
+  const navigate = useNavigate();
   const [role, setRole] = useState<"customer" | "organizer">("customer");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -8,6 +9,8 @@ export default function Register() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [referralCode, setReferralCode] = useState("");
   const [statusMessage, setStatusMessage] = useState("");
+  const [zodErrors, setZodErrors] = useState<Record<string, string[]>>({});
+  const [errorMsg, setErrorMsg] = useState(""); // Untuk error umum (misal: "Email sudah dipakai")
 
   const handleSubmit = async (e: React.SubmitEvent) => {
     e.preventDefault();
@@ -33,19 +36,22 @@ export default function Register() {
         }),
       });
 
-      const data = await response.json();
-      if (!response.ok) {
-        setStatusMessage(data.message || "Registrasi gagal");
-        return;
+      const result = await response.json();
+      if (response.ok) {
+        alert("🎉 Registrasi Berhasil! Silakan login.");
+        navigate("/login");
+        return; // 👈 WAJIB RETURN: Biar kode berhenti di sini dan tidak lanjut ke bawah
       }
 
-      setStatusMessage("Registrasi berhasil! Silakan login.");
-      setName("");
-      setEmail("");
-      setPassword("");
-      setConfirmPassword("");
-      setReferralCode("");
-      setRole("customer");
+      // Jika status gagal (Zod Error atau Email sudah dipakai)
+      if (result.errors) {
+        // Jika error dari Zod (Format salah)
+        setZodErrors(result.errors);
+        setErrorMsg("Mohon perbaiki data yang berwarna merah!");
+      } else {
+        // Jika error dari Controller (Misal: "Email sudah digunakan")
+        setErrorMsg(result.message || "Gagal melakukan registrasi.");
+      }
     } catch (error) {
       console.error(error);
       setStatusMessage("Terjadi kesalahan jaringan");
@@ -86,11 +92,7 @@ export default function Register() {
                   Pilih Peran Anda
                 </label>
                 <div className="grid grid-cols-2 gap-4">
-<<<<<<< HEAD
                   <label className="relative flex items-center justify-center p-4 rounded-lg bg-charcoal cursor-pointer border border-transparent hover:border-soft-pink/30 transition-all group has-checked:bg-soft-pink/10 has-checked:border-soft-pink">
-=======
-                  <label className="relative flex items-center justify-center p-4 rounded-lg bg-charcoal cursor-pointer border border-transparent hover:border-soft-pink/30 transition-all group has-[:checked]:bg-soft-pink/10 has-[:checked]:border-soft-pink">
->>>>>>> fa64156671a963d11307c33f8bf1d9231565110f
                     <input
                       checked={role === "customer"}
                       className="sr-only peer"
@@ -108,11 +110,7 @@ export default function Register() {
                       </span>
                     </div>
                   </label>
-<<<<<<< HEAD
                   <label className="relative flex items-center justify-center p-4 rounded-lg bg-charcoal cursor-pointer border border-transparent hover:border-soft-pink/30 transition-all group has-checked:bg-soft-pink/10 has-checked:border-soft-pink">
-=======
-                  <label className="relative flex items-center justify-center p-4 rounded-lg bg-charcoal cursor-pointer border border-transparent hover:border-soft-pink/30 transition-all group has-[:checked]:bg-soft-pink/10 has-[:checked]:border-soft-pink">
->>>>>>> fa64156671a963d11307c33f8bf1d9231565110f
                     <input
                       checked={role === "organizer"}
                       className="sr-only peer"
@@ -143,7 +141,7 @@ export default function Register() {
                     Nama Lengkap
                   </label>
                   <input
-                    className="w-full bg-charcoal border-none rounded-lg py-3 px-4 text-white placeholder:text-white/40 focus:ring-2 focus:ring-soft-pink/40 transition-all outline-none"
+                    className={`w-full bg-charcoal border rounded-lg p-3 text-white placeholder:text-white/40 focus:outline-none transition-all ${zodErrors.name ? "border-red-500" : "border-white/10 focus:border-soft-pink"}`}
                     id="full_name"
                     name="full_name"
                     placeholder="Masukan nama lengkap Anda"
@@ -151,6 +149,11 @@ export default function Register() {
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                   />
+                  {zodErrors.name && (
+                    <p className="text-red-500 text-[10px] mt-1 font-bold">
+                      *{zodErrors.name[0]}
+                    </p>
+                  )}
                 </div>
                 <div>
                   <label
@@ -160,7 +163,7 @@ export default function Register() {
                     Alamat Email
                   </label>
                   <input
-                    className="w-full bg-charcoal border-none rounded-lg py-3 px-4 text-white placeholder:text-white/40 focus:ring-2 focus:ring-soft-pink/40 transition-all outline-none"
+                    className={`w-full bg-charcoal border rounded-lg p-3 text-white focus:outline-none ${zodErrors.email ? "border-red-500" : "border-white/10 focus:border-soft-pink"}`}
                     id="email"
                     name="email"
                     placeholder="example@email.com"
@@ -168,6 +171,11 @@ export default function Register() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                   />
+                  {zodErrors.email && (
+                    <p className="text-red-500 text-[10px] mt-1 font-bold">
+                      *{zodErrors.email[0]}
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -181,7 +189,7 @@ export default function Register() {
                     Kata Sandi
                   </label>
                   <input
-                    className="w-full bg-charcoal border-none rounded-lg py-3 px-4 text-white placeholder:text-white/40 focus:ring-2 focus:ring-soft-pink/40 transition-all outline-none"
+                    className={`w-full bg-charcoal border rounded-lg p-3 text-white focus:outline-none ${zodErrors.password ? "border-red-500" : "border-white/10 focus:border-soft-pink"}`}
                     id="password"
                     name="password"
                     placeholder="••••••••"
@@ -189,6 +197,11 @@ export default function Register() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                   />
+                  {zodErrors.password && (
+                    <p className="text-red-500 text-[10px] mt-1 font-bold">
+                      *{zodErrors.password[0]}
+                    </p>
+                  )}
                 </div>
                 <div>
                   <label
@@ -249,6 +262,11 @@ export default function Register() {
               )}
 
               {/* CTA */}
+              {errorMsg && (
+                <p className="text-red-500 font-bold text-sm text-center my-4 animate-pulse">
+                  {errorMsg}
+                </p>
+              )}
               <div className="pt-4 space-y-4">
                 <button
                   className="w-full stage-gradient text-charcoal font-headline font-bold py-4 rounded-lg shadow-lg hover:brightness-110 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
