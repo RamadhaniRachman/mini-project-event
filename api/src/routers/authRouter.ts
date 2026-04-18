@@ -1,12 +1,14 @@
 import express from "express";
 import { register, login } from "../controllers/authController.js";
 import { verifyToken, CustomRequest } from "../middleware/authMiddleware.js";
+import { validate } from "../middleware/validateMiddleware.js";
+import { loginSchema, registerSchema } from "../schemas/authSchema.js";
 
 const router = express.Router();
 
 // --- PUBLIC ROUTES (Tidak butuh token) ---
-router.post("/register", register);
-router.post("/login", login);
+router.post("/register", validate(registerSchema), register);
+router.post("/login", validate(loginSchema), login);
 
 // --- PROTECTED ROUTES (Butuh token JWT valid) ---
 // Rute ini menggunakan verifyToken sebagai middleware penengah

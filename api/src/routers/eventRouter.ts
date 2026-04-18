@@ -3,6 +3,8 @@ import {
   getDashboardStats,
   createEvent,
   getOrganizerEvents,
+  getEventById,
+  updateEvent,
 } from "../controllers/eventController.js";
 import { verifyToken } from "../middleware/authMiddleware.js";
 import { upload } from "../middleware/uploadMiddleware.js";
@@ -15,5 +17,6 @@ router.post("/", verifyToken, upload.single("image"), createEvent);
 // "image" adalah nama key yg akan dikirim dari frontend/postnam
 router.get("/stats", verifyToken, getDashboardStats);
 router.get("/list", verifyToken, getOrganizerEvents);
-
+router.get("/:id", getEventById);
+router.put("/:id", upload.single("image"), updateEvent); // Rute untuk MENYIMPAN edit event
 export default router;
