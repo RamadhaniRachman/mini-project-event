@@ -146,3 +146,117 @@ export const getOrganizerEvents = async (
     return res.status(500).json({ message: "Gagal memuat daftar event" });
   }
 };
+
+// 4. Fungsi untuk mengambil data 1 event (Untuk mengisi form saat baru dibuka)
+export const getEventById = async (
+  req: Request,
+  res: Response,
+): Promise<any> => {
+  try {
+    const eventId = Number(req.params.id);
+
+    const event = await prisma.events.findUnique({
+      where: { id: eventId },
+      include: { tickets: true }, // Jangan lupa ikut bawa data tiketnya!
+    });
+
+    if (!event) {
+      return res.status(404).json({ message: "Event tidak ditemukan" });
+    }
+
+    return res.status(200).json(event);
+  } catch (error) {
+    console.error("Error get event:", error);
+    return res.status(500).json({ message: "Terjadi kesalahan server" });
+  }
+};
+
+// 2. Fungsi untuk MENYIMPAN perubahan event (Update)
+export const updateEvent = async (
+  req: Request,
+  res: Response,
+): Promise<any> => {
+  try {
+    const eventId = Number(req.params.id);
+    const {
+      title,
+      category,
+      location,
+      description,
+      event_date,
+      event_time,
+      is_direct_sale,
+    } = req.body;
+    const tickets = JSON.parse(req.body.tickets || "[]");
+
+    // ✨ KEAJAIBAN MULTER-CLOUDINARY ✨
+    // req.file.path sudah otomatis berupa URL link Cloudinary!
+    let newImageUrl = undefined;
+    if (req.file) {
+      newImageUrl = req.file.path;
+    }
+
+    // b. Gunakan Prisma Transaction
+    const updatedEvent = await prisma.$transaction(async (tx) => {
+      // 1. Update tabel utama Event
+      const eventUpdate = await tx.events.update({
+        where: { id: eventId },
+        data: {
+          title,
+          category,
+          location,
+          description,
+          event_date,
+          event_time,
+          // Jika ada gambar baru dari middleware, update URL-nya
+          ...(newImageUrl && { image_url: newImageUrl }),
+        },
+      });
+
+      // ... (Logika Update Tiket Cerdas TETAP SAMA seperti sebelumnya) ...
+      const incomingTicketIds = tickets
+        .map((t: any) => t.id)
+        .filter((id: any) => id);
+
+      await tx.tickets.deleteMany({
+        where: {
+          event_id: eventId,
+          id: { notIn: incomingTicketIds },
+        },
+      });
+
+      for (const ticket of tickets) {
+        if (ticket.id) {
+          await tx.tickets.update({
+            where: { id: ticket.id },
+            data: {
+              name: ticket.name,
+              price: Number(ticket.price),
+              available_seats: Number(ticket.available_seats),
+            },
+          });
+        } else {
+          await tx.tickets.create({
+            data: {
+              event_id: eventId,
+              name: ticket.name,
+              price: Number(ticket.price),
+              available_seats: Number(ticket.available_seats),
+            },
+          });
+        }
+      }
+
+      return eventUpdate;
+    });
+
+    return res
+      .status(200)
+      .json({ message: "Event berhasil diupdate!", data: updatedEvent });
+  } catch (error) {
+    console.error("Error update event:", error);
+    return res
+      .status(500)
+      .json({ message: "Terjadi kesalahan saat mengupdate event" });
+  }
+};
