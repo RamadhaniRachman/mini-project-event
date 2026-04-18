@@ -1,14 +1,27 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom"; // Pastikan react-router-dom sudah diinstall
 
 export default function Login() {
+  const navigate = useNavigate(); // Kita gunakan navigate alih-alih window.location.href
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [statusMessage, setStatusMessage] = useState("");
+
+  // State untuk mengelola pesan error
+  const [zodErrors, setZodErrors] = useState<Record<string, string[]>>({});
+  const [errorMsg, setErrorMsg] = useState("");
+  const [successMsg, setSuccessMsg] = useState(""); // State khusus untuk pesan sukses
 
   const handleSubmit = async (e: React.SubmitEvent) => {
     e.preventDefault();
+
+    // Bersihkan semua pesan error/sukses di awal
+    setZodErrors({});
+    setErrorMsg("");
+    setSuccessMsg("");
+
+    // Validasi Frontend
     if (!email || !password) {
-      setStatusMessage("Email dan kata sandi wajib diisi");
+      setErrorMsg("Email dan kata sandi wajib diisi");
       return;
     }
 
@@ -20,39 +33,43 @@ export default function Login() {
       });
 
       const data = await response.json();
-      if (!response.ok) {
-        setStatusMessage(
-          data.message || "Login gagal, periksa kredensial Anda.",
-        );
-        return;
+
+      // JIKA LOGIN BERHASIL
+      if (response.ok) {
+        setSuccessMsg("Login berhasil! Mengalihkan...");
+
+        console.log("Data user dari API:", data.user);
+
+        // Simpan token dan data user ke Local Storage
+        localStorage.setItem("token", data.token);
+        localStorage.setItem("user", JSON.stringify(data.user));
+
+        // Redirect berdasarkan role menggunakan setTimeout agar pesan sukses terlihat
+        setTimeout(() => {
+          const userRole = String(data.user.role || "").toLowerCase();
+
+          if (userRole === "organizer") {
+            navigate("/dashboard"); // Organizer ke dashboard
+          } else {
+            navigate("/"); // Customer ke home
+          }
+        }, 1500);
+
+        return; // Berhenti di sini
       }
 
-      setStatusMessage("Login berhasil! Mengalihkan...");
-      // Aksi setelah login sukses bisa ditambahkan di sini
-      // CEK DATA DARI API DI CONSOLE BROWSER ANDA
-      console.log("Data user dari API:", data.user);
-
-      // PALING KRUSIAL
-      // Simpan tiket (Token) dan identitas User ke Local Storage browser
-      localStorage.setItem("token", data.token);
-      // Karena localStorage hanya menerima string, data object user harus di-stringify
-      localStorage.setItem("user", JSON.stringify(data.user));
-      // -----------------------------
-
-      // Beri jeda sedikit agar pesan sukses terbaca, lalu arahkan sesuai Role
-      setTimeout(() => {
-        // Ambil role, ubah jadi string, lalu paksa jadi huruf kecil
-        const userRole = String(data.user.role || "").toLowerCase();
-
-        if (userRole === "organizer") {
-          window.location.href = "/dashboard"; // Organizer masuk ke ruang kontrol
-        } else {
-          window.location.href = "/"; // Customer masuk ke beranda / profil
-        }
-      }, 1500);
+      // JIKA LOGIN GAGAL (Zod Error atau Kredensial Salah)
+      if (data.errors) {
+        // Jika error dari Zod (Format tidak valid)
+        setZodErrors(data.errors);
+        setErrorMsg("Mohon perbaiki data yang berwarna merah!");
+      } else {
+        // Jika error dari Controller (Misal: Password salah atau Email tidak ditemukan)
+        setErrorMsg(data.message || "Login gagal, periksa kredensial Anda.");
+      }
     } catch (error) {
       console.error(error);
-      setStatusMessage("Terjadi kesalahan jaringan");
+      setErrorMsg("Terjadi kesalahan jaringan atau server tidak merespon.");
     }
   };
 
@@ -62,7 +79,7 @@ export default function Login() {
         {/* Background Artistic Elements */}
         <div className="absolute inset-0 z-0">
           <div className="absolute top-[-10%] right-[-10%] w-125 h-125 bg-soft-pink/10 rounded-full blur-[120px]"></div>
-          <div className="absolute bottom-[-5%] left-[-5%] w-100 h-[100 bg-light-pink/10 rounded-full blur-[100px]"></div>
+          <div className="absolute bottom-[-5%] left-[-5%] w-100 h-100 bg-light-pink/10 rounded-full blur-[100px]"></div>
           <div
             className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1470225620780-dba8ba36b745?auto=format&fit=crop&q=80&w=2070')] bg-cover bg-center opacity-10 mix-blend-overlay"
             data-alt="vibrant concert arena crowd with pink and purple stage lights and heavy atmospheric smoke"
@@ -84,7 +101,7 @@ export default function Login() {
           {/* Login Form Container */}
           <div className="bg-dark-gray p-8 md:p-10 rounded-xl shadow-2xl border border-white/5 backdrop-blur-sm">
             <form className="space-y-6" onSubmit={handleSubmit}>
-              {/* Login Details */}
+              {/* --- Input Email --- */}
               <div className="space-y-5">
                 <div>
                   <label
@@ -94,7 +111,7 @@ export default function Login() {
                     Alamat Email
                   </label>
                   <input
-                    className="w-full bg-charcoal border-none rounded-lg py-3 px-4 text-white placeholder:text-white/40 focus:ring-2 focus:ring-soft-pink/40 transition-all outline-none"
+                    className={`w-full bg-charcoal border rounded-lg p-3 text-white focus:outline-none transition-all ${zodErrors.email ? "border-red-500" : "border-white/10 focus:border-soft-pink"}`}
                     id="email"
                     name="email"
                     placeholder="example@email.com"
@@ -102,7 +119,15 @@ export default function Login() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                   />
+                  {/* Munculkan pesan Zod untuk Email */}
+                  {zodErrors.email && (
+                    <p className="text-red-500 text-[10px] mt-1 font-bold">
+                      *{zodErrors.email[0]}
+                    </p>
+                  )}
                 </div>
+
+                {/* --- Input Password --- */}
                 <div>
                   <div className="flex items-center justify-between mb-1.5">
                     <label
@@ -119,7 +144,7 @@ export default function Login() {
                     </a>
                   </div>
                   <input
-                    className="w-full bg-charcoal border-none rounded-lg py-3 px-4 text-white placeholder:text-white/40 focus:ring-2 focus:ring-soft-pink/40 transition-all outline-none"
+                    className={`w-full bg-charcoal border rounded-lg p-3 text-white focus:outline-none transition-all ${zodErrors.password ? "border-red-500" : "border-white/10 focus:border-soft-pink"}`}
                     id="password"
                     name="password"
                     placeholder="••••••••"
@@ -127,20 +152,35 @@ export default function Login() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                   />
+                  {/* Munculkan pesan Zod untuk Password */}
+                  {zodErrors.password && (
+                    <p className="text-red-500 text-[10px] mt-1 font-bold">
+                      *{zodErrors.password[0]}
+                    </p>
+                  )}
                 </div>
               </div>
 
-              {statusMessage && (
-                <p className="text-center text-sm font-medium text-soft-pink mt-2">
-                  {statusMessage}
+              {/* Tampilkan Pesan Sukses (Warna Pink) */}
+              {successMsg && (
+                <p className="text-center text-sm font-bold text-soft-pink mt-4 animate-pulse">
+                  {successMsg}
+                </p>
+              )}
+
+              {/* Tampilkan Pesan Error Umum (Warna Merah) */}
+              {errorMsg && (
+                <p className="text-center text-sm font-bold text-red-500 mt-4 animate-pulse">
+                  {errorMsg}
                 </p>
               )}
 
               {/* CTA */}
               <div className="pt-6 space-y-4">
                 <button
-                  className="w-full stage-gradient text-charcoal font-headline font-bold py-4 rounded-lg shadow-lg hover:brightness-110 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+                  className="w-full stage-gradient text-charcoal font-headline font-bold py-4 rounded-lg shadow-lg hover:brightness-110 active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-50"
                   type="submit"
+                  disabled={!!successMsg} // Tombol mati saat proses login sukses & menunggu redirect
                 >
                   <span>MASUK SEKARANG</span>
                   <span className="material-symbols-outlined text-lg">
