@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 
 // 1. Definisi Tipe Data
@@ -33,6 +33,7 @@ export default function DashboardOverview() {
   });
   const [events, setEvents] = useState<EventData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const API_URL = import.meta.env.VITE_PROJECT_API;
 
   // 2. Mengambil Data dari Backend
   useEffect(() => {
@@ -46,8 +47,8 @@ export default function DashboardOverview() {
 
         // Mengambil Stats dan Events secara bersamaan
         const [statsRes, eventsRes] = await Promise.all([
-          fetch("http://localhost:8000/api/events/stats", { headers }),
-          fetch("http://localhost:8000/api/events/list", { headers }),
+          fetch(`${API_URL}/api/events/stats`, { headers }),
+          fetch(`${API_URL}/api/events/list`, { headers }),
         ]);
 
         if (statsRes.ok && eventsRes.ok) {
@@ -301,12 +302,13 @@ export default function DashboardOverview() {
                   0,
                 ) || 0;
               const isSoldOut = totalCapacity === 0;
+              const API_URL = import.meta.env.VITE_PROJECT_API;
+
               const imageSrc = event.image_url
                 ? event.image_url.startsWith("http")
                   ? event.image_url
-                  : `http://localhost:8000${event.image_url}`
+                  : `${API_URL}${event.image_url}`
                 : "https://images.unsplash.com/photo-1540039155732-684735035727?auto=format&fit=crop&q=80&w=800";
-
               return (
                 <div
                   key={event.id}

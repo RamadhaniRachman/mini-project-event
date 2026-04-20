@@ -2,6 +2,8 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom"; // Pastikan react-router-dom sudah diinstall
 
 export default function Login() {
+  const API_URL = import.meta.env.VITE_PROJECT_API;
+
   const navigate = useNavigate(); // Kita gunakan navigate alih-alih window.location.href
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -26,7 +28,7 @@ export default function Login() {
     }
 
     try {
-      const response = await fetch("http://localhost:8000/api/auth/login", {
+      const response = await fetch(`${API_URL}/api/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),

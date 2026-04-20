@@ -5,13 +5,12 @@ import Login from "./pages/login";
 import Dashboard from "./pages/dashboard";
 import DashboardOverview from "./components/dashboardOverview";
 import Transactions from "./components/transaction";
-import MyEvents from "./components/myEvent";
-import Reports from "./components/report";
+import MyEvents from "./pages/myEvent";
+import Reports from "./pages/report";
 import Home from "./pages/home";
 import CreateEvent from "./components/createEvent";
-
-// Buat komponen Home sementara (atau import dari pages/home jika sudah ada)
-
+import EventDetail from "./components/eventDetail";
+import Attendees from "./pages/attendees";
 export default function App() {
   return (
     <>
@@ -29,6 +28,8 @@ export default function App() {
                 <Route path="transactions" element={<Transactions />} />{" "}
                 {/* /dashboard/transactions */}
                 <Route path="events" element={<MyEvents />} />
+                <Route path="events/edit/:id" element={<EventDetail />} />
+                <Route path="attendees" element={<Attendees />} />
                 <Route path="reports" element={<Reports />} />
                 <Route path="create-event" element={<CreateEvent />} />
               </Route>

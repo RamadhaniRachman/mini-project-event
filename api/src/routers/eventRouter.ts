@@ -18,5 +18,5 @@ router.post("/", verifyToken, upload.single("image"), createEvent);
 router.get("/stats", verifyToken, getDashboardStats);
 router.get("/list", verifyToken, getOrganizerEvents);
 router.get("/:id", getEventById);
-router.put("/:id", upload.single("image"), updateEvent); // Rute untuk MENYIMPAN edit event
+router.put("/:id", verifyToken, upload.single("image"), updateEvent);
 export default router;
