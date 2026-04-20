@@ -1,5 +1,3 @@
-import React from "react";
-
 export default function Transactions() {
   return (
     <div className="max-w-7xl mx-auto animate-in fade-in duration-500 pb-12">

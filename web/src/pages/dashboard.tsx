@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { Outlet, Link, useLocation } from "react-router-dom";
 
 export default function Dashboard() {
@@ -98,6 +98,28 @@ export default function Dashboard() {
             <span className="material-symbols-outlined">event</span>
             <span className="font-label uppercase tracking-widest text-xs">
               My Events
+            </span>
+          </Link>
+          <Link
+            to="/dashboard/attendees"
+            className={`flex items-center gap-4 px-4 py-3.5 font-semibold transition-all rounded-lg ${
+              location.pathname.includes("/attendees")
+                ? "text-soft-pink bg-soft-pink/10 border-r-4 border-soft-pink rounded-l-lg rounded-r-none"
+                : "text-white/40 font-medium hover:bg-white/5 hover:text-white"
+            }`}
+          >
+            <span
+              className="material-symbols-outlined"
+              style={{
+                fontVariationSettings: location.pathname.includes("/attendees")
+                  ? "'FILL' 1"
+                  : "'FILL' 0",
+              }}
+            >
+              group
+            </span>
+            <span className="font-label uppercase tracking-widest text-xs">
+              Attendees
             </span>
           </Link>
           <Link
@@ -210,10 +232,26 @@ export default function Dashboard() {
         </Link>
         <Link
           className="flex flex-col items-center gap-1 text-white/40 hover:text-white"
-          to="/events"
+          to="/dashboard/events"
         >
           <span className="material-symbols-outlined">event</span>
           <span className="text-[10px] font-bold">Event</span>
+        </Link>
+        <Link
+          className={`flex flex-col items-center gap-1 ${location.pathname.includes("/attendees") ? "text-soft-pink" : "text-white/40"}`}
+          to="/dashboard/attendees"
+        >
+          <span
+            className="material-symbols-outlined"
+            style={{
+              fontVariationSettings: location.pathname.includes("/attendees")
+                ? "'FILL' 1"
+                : "'FILL' 0",
+            }}
+          >
+            group
+          </span>
+          <span className="text-[10px] font-bold">Peserta</span>
         </Link>
         <Link
           className={`flex flex-col items-center gap-1 ${location.pathname.includes("/transactions") ? "text-soft-pink" : "text-white/40"}`}

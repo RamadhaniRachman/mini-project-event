@@ -10,8 +10,6 @@ export const getDashboardStats = async (
   try {
     const organizerId = req.user.id;
 
-    // Menghitung data secara paralel agar lebih cepat
-
     const [eventCount, transactionData] = await Promise.all([
       // Menhgitung jumlah event yg dibuat organizer ini
       prisma.events.count({
@@ -72,7 +70,6 @@ export const createEvent = async (
     // mengubah string "false"/"true" kembali menjadi boolean asli
     const parsedIsFree = is_free === "true";
 
-    // Ubah string JSPM tiket kembali menjadi array object
     const parsedTickets =
       typeof tickets === "string" ? JSON.parse(tickets) : tickets;
 
@@ -171,7 +168,7 @@ export const getEventById = async (
   }
 };
 
-// 2. Fungsi untuk MENYIMPAN perubahan event (Update)
+// 5. Fungsi untuk mengupdate perubahan event (Update)
 export const updateEvent = async (
   req: Request,
   res: Response,
@@ -189,7 +186,6 @@ export const updateEvent = async (
     } = req.body;
     const tickets = JSON.parse(req.body.tickets || "[]");
 
-    // ✨ KEAJAIBAN MULTER-CLOUDINARY ✨
     // req.file.path sudah otomatis berupa URL link Cloudinary!
     let newImageUrl = undefined;
     if (req.file) {
@@ -206,14 +202,14 @@ export const updateEvent = async (
           category,
           location,
           description,
-          event_date,
-          event_time,
+          event_date: new Date(event_date),
+          event_time: new Date(`${event_date}T${event_time}:00`),
           // Jika ada gambar baru dari middleware, update URL-nya
           ...(newImageUrl && { image_url: newImageUrl }),
         },
       });
 
-      // ... (Logika Update Tiket Cerdas TETAP SAMA seperti sebelumnya) ...
+      // ... (Logika Update Tiket) ...
       const incomingTicketIds = tickets
         .map((t: any) => t.id)
         .filter((id: any) => id);
@@ -258,5 +254,37 @@ export const updateEvent = async (
     return res
       .status(500)
       .json({ message: "Terjadi kesalahan saat mengupdate event" });
+  }
+};
+
+// Fungsi untuk Mengambil Daftar Peserta (Berdasarkan Transaksi Sukses)
+export const getOrganizerAttendees = async (
+  req: CustomRequest,
+  res: Response,
+): Promise<any> => {
+  try {
+    const organizerId = req.user.id; // ID organizer yang sedang login
+
+    // Cari semua transaksi sukses yang event-nya dimiliki oleh organizer ini
+    const attendees = await prisma.transactions.findMany({
+      where: {
+        event: { organizer_id: organizerId }, // Relasi ke event
+        status: "success", // Pastikan hanya yang sudah bayar
+      },
+      include: {
+        user: { select: { name: true, email: true } }, // Ambil data pembeli
+        ticket_type: { select: { name: true } },
+        event: { select: { title: true } }, // Ambil nama event
+      },
+      orderBy: { created_at: "desc" },
+    });
+
+    return res.status(200).json({
+      message: "Berhasil mengambil data peserta",
+      data: attendees,
+    });
+  } catch (error) {
+    console.error("Get attendees error:", error);
+    return res.status(500).json({ message: "Gagal memuat daftar peserta" });
   }
 };

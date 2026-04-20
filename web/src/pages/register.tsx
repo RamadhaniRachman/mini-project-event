@@ -11,6 +11,7 @@ export default function Register() {
   const [statusMessage, setStatusMessage] = useState("");
   const [zodErrors, setZodErrors] = useState<Record<string, string[]>>({});
   const [errorMsg, setErrorMsg] = useState(""); // Untuk error umum (misal: "Email sudah dipakai")
+  const API_URL = import.meta.env.VITE_PROJECT_API;
 
   const handleSubmit = async (e: React.SubmitEvent) => {
     e.preventDefault();
@@ -24,7 +25,7 @@ export default function Register() {
     }
 
     try {
-      const response = await fetch("http://localhost:8000/api/auth/register", {
+      const response = await fetch(`${API_URL}/api/auth/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
