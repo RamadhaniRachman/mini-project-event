@@ -150,6 +150,7 @@ export default function MyEvents() {
                 ? event.image_url
                 : `${API_URL}${event.image_url}`
               : "https://images.unsplash.com/photo-1540039155732-684735035727?auto=format&fit=crop&q=80&w=800";
+
             // Jika ini adalah event pertama di array (index 0), pakai desain BESAR (Highlight)
             if (index === 0) {
               return (
