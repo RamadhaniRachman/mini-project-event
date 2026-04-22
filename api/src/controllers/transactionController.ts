@@ -10,7 +10,7 @@ export const checkout = async (
   try {
     const customerId = req.user.id;
 
-    // 👇 Tambahkan tangkapan untuk useCoupon dan redeemPoints dari Frontend
+    // Tambahkan tangkapan untuk useCoupon dan redeemPoints dari Frontend
     const { eventId, selectedTickets, promoCode, useCoupon, redeemPoints } =
       req.body;
 
@@ -35,14 +35,14 @@ export const checkout = async (
         if (!promo) throw new Error("Kode promo tidak valid atau kuota habis.");
       }
 
-      // 2. Cek Kupon Referral 10% (Jika User mencentang "Gunakan Kupon")
+      // 2. Cek Kupon Referral 10%
       let appliedCoupon = null;
       if (useCoupon) {
         appliedCoupon = await tx.coupons.findFirst({
           where: {
             user_id: customerId,
             is_used: false,
-            expired_at: { gte: new Date() }, // Pastikan belum kadaluwarsa
+            expired_at: { gte: new Date() },
           },
         });
         if (!appliedCoupon)
@@ -51,10 +51,9 @@ export const checkout = async (
           );
       }
 
-      // 3. Cek Saldo Poin Referral (Jika User mengisi jumlah poin yang ingin dipakai)
+      // 3. Cek Saldo Poin Referral
       let pointsToUse = Number(redeemPoints) || 0;
       if (pointsToUse > 0) {
-        // Ambil semua poin user yang masih aktif dan ada saldonya (Urutkan dari yang paling cepat expired / FIFO)
         const activePoints = await tx.points.findMany({
           where: {
             user_id: customerId,
@@ -74,7 +73,6 @@ export const checkout = async (
           );
         }
 
-        // Potong Saldo Poin di database secara berurutan (Sistem FIFO)
         let remainingToDeduct = pointsToUse;
         for (const pointRow of activePoints) {
           if (remainingToDeduct <= 0) break;
@@ -95,7 +93,10 @@ export const checkout = async (
 
       const transactionsToCreate = [];
 
-      // 4. Loop setiap tiket yang dibeli untuk cek stok & hitung harga akhir
+      // 👇 WAKTU KEDALUWARSA: 2 JAM DARI SEKARANG
+      const duaJamDariSekarang = new Date(Date.now() + 2 * 60 * 60 * 1000);
+
+      // 4. Loop setiap tiket
       for (const item of selectedTickets) {
         if (item.quantity <= 0) continue;
 
@@ -107,17 +108,14 @@ export const checkout = async (
           throw new Error(`Kapasitas ${ticketDb.name} tidak mencukupi.`);
         }
 
-        // Potong kursi tiket sementara
         await tx.tickets.update({
           where: { id: item.ticketId },
           data: { available_seats: ticketDb.available_seats - item.quantity },
         });
 
-        // Hitung harga dasar
         const originalPrice = ticketDb.price * item.quantity;
         let finalPrice = originalPrice;
 
-        // A. Potong pakai Promo Organizer (Jika ada)
         if (promo) {
           if (promo.discount_type === "PERCENTAGE") {
             finalPrice -= originalPrice * (promo.discount_value / 100);
@@ -129,15 +127,13 @@ export const checkout = async (
           }
         }
 
-        // B. Potong pakai Kupon Referral (Misal 10%)
         if (appliedCoupon) {
           finalPrice -= finalPrice * (appliedCoupon.discount_percentage / 100);
         }
 
-        // C. Potong pakai Poin (1 Poin = Rp 1)
         let pointUsedForThisTicket = 0;
         if (pointsToUse > 0) {
-          const deduction = Math.min(finalPrice, pointsToUse); // Jangan sampai harga jadi minus
+          const deduction = Math.min(finalPrice, pointsToUse);
           finalPrice -= deduction;
           pointsToUse -= deduction;
           pointUsedForThisTicket = deduction;
@@ -149,10 +145,11 @@ export const checkout = async (
           ticket_type_id: item.ticketId,
           quantity: item.quantity,
           original_price: originalPrice,
-          final_price: Math.round(finalPrice), // Bulatkan agar tidak ada desimal
+          final_price: Math.round(finalPrice),
           promo_id: promo ? promo.id : null,
-          point_redeemed: pointUsedForThisTicket, // 👈 Simpan total poin yang dipotong di transaksi ini
+          point_redeemed: pointUsedForThisTicket,
           status: "pending",
+          expires_at: duaJamDariSekarang, // 👈 TAMBAHAN: Set timer 2 jam
         });
       }
 
@@ -170,21 +167,74 @@ export const checkout = async (
       if (appliedCoupon) {
         await tx.coupons.update({
           where: { id: appliedCoupon.id },
-          data: { is_used: true }, // Tandai kupon hangus karena sudah dipakai
+          data: { is_used: true },
         });
       }
 
-      return true; // Transaksi sukses
+      return true;
     });
 
-    return res
-      .status(200)
-      .json({ message: "Pembelian tiket berhasil menunggu verifikasi!" });
+    return res.status(201).json({
+      message:
+        "Pembelian tiket berhasil! Silakan unggah bukti pembayaran dalam waktu 2 jam.",
+    });
   } catch (error: any) {
     console.error("Checkout error:", error);
     return res
       .status(400)
       .json({ message: error.message || "Gagal melakukan transaksi" });
+  }
+};
+
+// 👇 FUNGSI BARU UNTUK CUSTOMER UPLOAD BUKTI PEMBAYARAN 👇
+export const uploadProof = async (
+  req: CustomRequest,
+  res: Response,
+): Promise<any> => {
+  try {
+    const transactionId = Number(req.params.id);
+    const userId = req.user.id;
+
+    // Pastikan file gambar berhasil ditangkap multer/cloudinary
+    if (!req.file) {
+      return res
+        .status(400)
+        .json({ message: "File bukti pembayaran tidak ditemukan." });
+    }
+
+    const imageUrl = req.file.path; // URL otomatis dari Cloudinary
+
+    const transaction = await prisma.transactions.findFirst({
+      where: { id: transactionId, customer_id: userId },
+    });
+
+    if (!transaction)
+      return res.status(404).json({ message: "Transaksi tidak ditemukan." });
+
+    // Hanya bisa upload jika statusnya pending atau rejected (ditolak tapi boleh re-upload)
+    if (transaction.status !== "pending" && transaction.status !== "rejected") {
+      return res.status(400).json({
+        message: `Tidak bisa mengunggah bukti. Status saat ini: ${transaction.status}`,
+      });
+    }
+
+    const updatedTransaction = await prisma.transactions.update({
+      where: { id: transactionId },
+      data: {
+        payment_proof: imageUrl,
+        status: "waiting_admin", // Ubah status agar masuk antrean Organizer
+      },
+    });
+
+    return res.status(200).json({
+      message: "Bukti pembayaran berhasil diunggah! Menunggu konfirmasi admin.",
+      data: updatedTransaction,
+    });
+  } catch (error) {
+    console.error("Upload proof error:", error);
+    return res
+      .status(500)
+      .json({ message: "Gagal mengunggah bukti pembayaran." });
   }
 };
 
@@ -266,14 +316,13 @@ export const getTransactionById = async (
   }
 };
 
-// 👇 INI FUNGSI YANG SUDAH DI-UPGRADE DENGAN NODEMAILER & REFUND 👇
 export const verifyTransaction = async (
   req: CustomRequest,
   res: Response,
 ): Promise<any> => {
   try {
     const { id } = req.params;
-    const { action, reason, note } = req.body; // Menerima alasan penolakan dari frontend
+    const { action, reason, note } = req.body;
 
     const transaction = await prisma.transactions.findUnique({
       where: { id: Number(id) },
@@ -286,10 +335,12 @@ export const verifyTransaction = async (
 
     if (!transaction)
       return res.status(404).json({ message: "Transaksi tidak ditemukan" });
-    if (transaction.status !== "pending") {
-      return res
-        .status(400)
-        .json({ message: "Transaksi ini sudah diproses sebelumnya." });
+
+    // 👇 PASTIKAN ORGANIZER HANYA MEMPROSES YANG MENUNGGU KONFIRMASI
+    if (transaction.status !== "waiting_admin") {
+      return res.status(400).json({
+        message: "Transaksi ini tidak sedang menunggu konfirmasi admin.",
+      });
     }
 
     // =====================================
@@ -298,14 +349,13 @@ export const verifyTransaction = async (
     if (action === "REJECT") {
       const queries: any[] = [];
 
-      // 1. Ubah status transaksi
       queries.push(
         prisma.transactions.update({
           where: { id: Number(id) },
           data: { status: "rejected" },
         }),
       );
-      // 2. Kembalikan sisa kursi tiket
+
       queries.push(
         prisma.tickets.update({
           where: { id: transaction.ticket_type_id },
@@ -313,7 +363,6 @@ export const verifyTransaction = async (
         }),
       );
 
-      // 3. Kembalikan Kuota Promo Organizer (Jika pakai)
       if (transaction.promo_id) {
         queries.push(
           prisma.promotions.update({
@@ -323,12 +372,8 @@ export const verifyTransaction = async (
         );
       }
 
-      // Catatan: Jika ada kupon pribadi (Referral), kembalikan is_used jadi false di sini
-      // Catatan: Logika Poin dimatikan agar tidak terjadi error relasi.
+      await prisma.$transaction(queries);
 
-      await prisma.$transaction(queries); // Eksekusi bersamaan agar aman (ACID)
-
-      // 4. KIRIM EMAIL PENOLAKAN
       const emailHtml = `
         <div style="font-family: Arial, sans-serif; max-w: 600px; margin: 0 auto; border: 1px solid #FF8FC7; border-radius: 10px; padding: 20px;">
           <h2 style="color: #ef4444; text-align: center;">Transaksi Ditolak</h2>
@@ -339,10 +384,8 @@ export const verifyTransaction = async (
             ${note ? `<p style="margin: 10px 0 0; color: #7f1d1d;"><strong>Catatan Admin:</strong> ${note}</p>` : ""}
           </div>
           <p>Seluruh voucher yang Anda gunakan pada transaksi ini telah <strong>dikembalikan secara otomatis</strong> ke akun Anda.</p>
-          <p>Silakan melakukan pembelian ulang tiket sebelum kehabisan!</p>
         </div>
       `;
-      // Panggil sendEmail tanpa await agar response API lebih cepat
       sendEmail(
         transaction.user.email,
         `[DITOLAK] Pembelian Tiket - ${transaction.event.title}`,
@@ -363,7 +406,6 @@ export const verifyTransaction = async (
         data: { status: "success" },
       });
 
-      // KIRIM EMAIL E-TICKET (SUCCESS)
       const emailHtml = `
         <div style="font-family: Arial, sans-serif; max-w: 600px; margin: 0 auto; background-color: #1C1C1E; color: #fff; border-radius: 15px; padding: 30px;">
           <div style="text-align: center; margin-bottom: 30px;">
@@ -377,9 +419,6 @@ export const verifyTransaction = async (
             <p style="margin: 5px 0; color: #ccc;"><strong>Jumlah:</strong> ${transaction.quantity} Tiket</p>
             <p style="margin: 5px 0; color: #FF8FC7;"><strong>Telah Lunas:</strong> Rp ${transaction.final_price.toLocaleString("id-ID")}</p>
           </div>
-          <p style="text-align: center; margin-top: 30px; font-size: 14px; color: #888;">
-            Tunjukkan email ini kepada petugas saat berada di Gate acara.
-          </p>
         </div>
       `;
       sendEmail(
@@ -399,7 +438,6 @@ export const verifyTransaction = async (
   }
 };
 
-// Fungsi untuk mengecek Poin dan Kupon milik Customer
 export const getUserRewards = async (
   req: CustomRequest,
   res: Response,
@@ -407,7 +445,6 @@ export const getUserRewards = async (
   try {
     const customerId = req.user.id;
 
-    // 1. Hitung total poin yang masih aktif (belum expired & saldo > 0)
     const activePoints = await prisma.points.aggregate({
       where: {
         user_id: customerId,
@@ -418,7 +455,6 @@ export const getUserRewards = async (
     });
     const totalPoints = activePoints._sum.remaining_balance || 0;
 
-    // 2. Cek apakah ada kupon referral 10% yang belum dipakai
     const activeCoupon = await prisma.coupons.findFirst({
       where: {
         user_id: customerId,
@@ -429,10 +465,43 @@ export const getUserRewards = async (
 
     return res.status(200).json({
       points: totalPoints,
-      hasCoupon: !!activeCoupon, // Mengubah object menjadi true/false
+      hasCoupon: !!activeCoupon,
     });
   } catch (error) {
     console.error("Error get rewards:", error);
     return res.status(500).json({ message: "Gagal mengambil data reward" });
+  }
+};
+
+// Fungsi untuk Mengambil Riwayat Transaksi Customer
+export const getCustomerTransactions = async (
+  req: CustomRequest,
+  res: Response,
+): Promise<any> => {
+  try {
+    const customerId = req.user.id;
+
+    const transactions = await prisma.transactions.findMany({
+      where: { customer_id: customerId },
+      include: {
+        event: {
+          select: {
+            title: true,
+            image_url: true,
+            event_date: true,
+            location: true,
+          },
+        },
+        ticket_type: { select: { name: true } },
+      },
+      orderBy: { created_at: "desc" },
+    });
+
+    return res.status(200).json({ data: transactions });
+  } catch (error) {
+    console.error("Error get customer transactions:", error);
+    return res
+      .status(500)
+      .json({ message: "Gagal mengambil riwayat transaksi" });
   }
 };

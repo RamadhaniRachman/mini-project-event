@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { Link } from "react-router-dom"; // Tambahkan ini
 
 export default function Profile() {
   const [user, setUser] = useState<{
@@ -22,8 +23,12 @@ export default function Profile() {
   const [showNew, setShowNew] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
 
-  // Menu Setting State
-  const [activeMenu, setActiveMenu] = useState("general");
+  // 🔴 MENU SETTING STATE (Ubah default ke history agar langsung muncul pesanan)
+  const [activeMenu, setActiveMenu] = useState("history");
+
+  // 🔴 STATE RIWAYAT TRANSAKSI
+  const [transactions, setTransactions] = useState<any[]>([]);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(true);
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -44,7 +49,29 @@ export default function Profile() {
     setPhone("+62 812 3456 7890"); // Placeholder
     setBio(
       "Penikmat konser dan festival musik sejati. Selalu mencari barisan terdepan di setiap stage!",
-    ); // Placeholder
+    );
+
+    // 🔴 FETCH RIWAYAT TRANSAKSI
+    const fetchHistory = async () => {
+      try {
+        const response = await fetch(
+          "http://localhost:8000/api/transactions/history",
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          },
+        );
+        if (response.ok) {
+          const result = await response.json();
+          setTransactions(result.data);
+        }
+      } catch (error) {
+        console.error(error);
+      } finally {
+        setIsLoadingHistory(false);
+      }
+    };
+
+    fetchHistory();
   }, []);
 
   const handleLogout = () => {
@@ -121,6 +148,50 @@ export default function Profile() {
     window.history.back();
   };
 
+  // 🔴 HELPER FORMAT STATUS TRANSAKSI
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case "pending":
+        return (
+          <span className="bg-yellow-500/10 text-yellow-400 border border-yellow-500/20 px-3 py-1 rounded-md text-[10px] font-bold uppercase tracking-widest">
+            Menunggu Pembayaran
+          </span>
+        );
+      case "waiting_admin":
+        return (
+          <span className="bg-blue-500/10 text-blue-400 border border-blue-500/20 px-3 py-1 rounded-md text-[10px] font-bold uppercase tracking-widest">
+            Diproses Admin
+          </span>
+        );
+      case "success":
+        return (
+          <span className="bg-green-500/10 text-green-400 border border-green-500/20 px-3 py-1 rounded-md text-[10px] font-bold uppercase tracking-widest">
+            Selesai (E-Ticket)
+          </span>
+        );
+      case "rejected":
+        return (
+          <span className="bg-red-500/10 text-red-400 border border-red-500/20 px-3 py-1 rounded-md text-[10px] font-bold uppercase tracking-widest">
+            Ditolak
+          </span>
+        );
+      case "expired":
+        return (
+          <span className="bg-white/5 text-white/40 border border-white/10 px-3 py-1 rounded-md text-[10px] font-bold uppercase tracking-widest">
+            Kedaluwarsa
+          </span>
+        );
+      case "cancelled":
+        return (
+          <span className="bg-red-500/10 text-red-500 border border-red-500/20 px-3 py-1 rounded-md text-[10px] font-bold uppercase tracking-widest">
+            Dibatalkan
+          </span>
+        );
+      default:
+        return null;
+    }
+  };
+
   if (!user) {
     return (
       <div className="min-h-screen bg-charcoal flex justify-center items-center text-soft-pink font-headline font-bold text-xl tracking-widest animate-pulse">
@@ -129,7 +200,6 @@ export default function Profile() {
     );
   }
 
-  // Password strength calculation simulation
   const getPasswordStrength = () => {
     if (newPassword.length === 0) return 0;
     if (newPassword.length < 6) return 1;
@@ -164,12 +234,6 @@ export default function Profile() {
               </a>
             )}
             <a
-              className="text-white/60 hover:text-soft-pink px-3 py-1 transition-all duration-300"
-              href="#"
-            >
-              Events
-            </a>
-            <a
               className="text-soft-pink font-bold border-b-2 border-soft-pink px-3 py-1"
               href="/profile"
             >
@@ -184,7 +248,6 @@ export default function Profile() {
                   {user.name.charAt(0).toUpperCase()}
                 </span>
               </div>
-              {/* Dropdown Logout */}
               <div className="absolute right-0 mt-2 w-32 bg-dark-gray border border-white/10 rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all">
                 <button
                   onClick={handleLogout}
@@ -202,25 +265,32 @@ export default function Profile() {
         {/* Editorial Header Section */}
         <div className="mb-12 relative">
           <h1 className="text-6xl md:text-7xl font-black italic text-white/5 absolute -top-8 -left-4 select-none uppercase tracking-tighter font-headline">
-            Setting
+            Profile
           </h1>
           <h2 className="text-4xl font-extrabold text-white relative font-headline tracking-tight">
-            Pengaturan Akun
+            Akun Saya
           </h2>
           <p className="text-white/60 mt-2 max-w-md relative z-10 text-sm">
-            Kelola informasi akun Anda dan atur preferensi panggung digital
+            Kelola pesanan tiket, informasi profil, dan atur preferensi keamanan
             Anda.
           </p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-12 gap-8 items-start">
           {/* Sidebar Navigation */}
-          <aside className="md:col-span-3 space-y-2">
+          <aside className="md:col-span-3 space-y-2 sticky top-28">
+            <button
+              onClick={() => setActiveMenu("history")}
+              className={`w-full flex items-center gap-3 px-6 py-4 rounded-xl font-bold transition-all ${activeMenu === "history" ? "bg-dark-gray text-soft-pink border border-white/5 shadow-[0_0_15px_rgba(255,143,199,0.1)]" : "text-white/60 hover:bg-white/5 hover:text-white"}`}
+            >
+              <span className="material-symbols-outlined">receipt_long</span>{" "}
+              Pesanan Saya
+            </button>
             <button
               onClick={() => setActiveMenu("general")}
               className={`w-full flex items-center gap-3 px-6 py-4 rounded-xl font-bold transition-all ${activeMenu === "general" ? "bg-dark-gray text-soft-pink border border-white/5 shadow-[0_0_15px_rgba(255,143,199,0.1)]" : "text-white/60 hover:bg-white/5 hover:text-white"}`}
             >
-              <span className="material-symbols-outlined">person</span> General
+              <span className="material-symbols-outlined">person</span> Profil
             </button>
             <button
               onClick={() => setActiveMenu("security")}
@@ -232,12 +302,115 @@ export default function Profile() {
           </aside>
 
           {/* Main Form Canvas */}
-          <div className="md:col-span-9 bg-dark-gray border border-white/5 rounded-xl p-6 md:p-10 space-y-12 shadow-2xl relative overflow-hidden">
+          <div className="md:col-span-9 bg-dark-gray border border-white/5 rounded-xl p-6 md:p-10 min-h-[500px] shadow-2xl relative overflow-hidden">
             <div className="absolute top-0 right-0 w-32 h-32 bg-soft-pink/5 rounded-full -mr-16 -mt-16 blur-3xl pointer-events-none"></div>
 
-            {/* ===================== MENU GENERAL (PROFIL) ===================== */}
+            {/* ===================== MENU 1: PESANAN SAYA (BARU) ===================== */}
+            {activeMenu === "history" && (
+              <div className="animate-in fade-in duration-300 space-y-6">
+                <div className="mb-8">
+                  <h3 className="text-2xl font-bold font-headline text-white mb-2 uppercase tracking-tighter">
+                    Riwayat Tiket
+                  </h3>
+                  <p className="text-sm text-white/60">
+                    Daftar semua transaksi dan E-Ticket Anda.
+                  </p>
+                </div>
+
+                {isLoadingHistory ? (
+                  <div className="text-center py-12 text-soft-pink animate-pulse font-bold tracking-widest">
+                    MEMUAT DATA...
+                  </div>
+                ) : transactions.length === 0 ? (
+                  <div className="bg-charcoal border border-white/5 rounded-2xl p-12 text-center flex flex-col items-center">
+                    <span className="material-symbols-outlined text-6xl text-white/10 mb-4">
+                      confirmation_number
+                    </span>
+                    <p className="text-white/60 mb-6">
+                      Anda belum membeli tiket apapun.
+                    </p>
+                    <Link
+                      to="/"
+                      className="text-charcoal bg-soft-pink font-bold px-8 py-3 rounded-xl hover:brightness-110 transition-all shadow-[0_0_15px_rgba(255,143,199,0.3)] uppercase tracking-widest text-sm"
+                    >
+                      Eksplor Event
+                    </Link>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {transactions.map((trx) => (
+                      <div
+                        key={trx.id}
+                        className="bg-charcoal border border-white/5 rounded-xl p-6 hover:border-soft-pink/30 transition-all flex flex-col sm:flex-row gap-6 shadow-lg relative overflow-hidden group"
+                      >
+                        <div className="flex-1 space-y-3 relative z-10">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-[11px] font-bold text-white/40 tracking-widest">
+                              ORDER ID: #TRX-{trx.id}
+                            </span>
+                            {getStatusBadge(trx.status)}
+                          </div>
+                          <h3 className="font-headline font-black text-xl text-white uppercase italic tracking-tighter line-clamp-1 group-hover:text-soft-pink transition-colors">
+                            {trx.event.title}
+                          </h3>
+                          <div className="text-sm text-white/60 space-y-1">
+                            <p>
+                              <span className="text-soft-pink font-bold">
+                                {trx.quantity}x
+                              </span>{" "}
+                              {trx.ticket_type.name}
+                            </p>
+                            <p className="flex items-center gap-1 text-[11px] uppercase tracking-widest">
+                              <span className="material-symbols-outlined text-[14px]">
+                                event
+                              </span>{" "}
+                              {new Date(
+                                trx.event.event_date,
+                              ).toLocaleDateString("id-ID", {
+                                day: "numeric",
+                                month: "long",
+                                year: "numeric",
+                              })}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="flex flex-col justify-between sm:items-end border-t sm:border-t-0 sm:border-l border-white/10 pt-4 sm:pt-0 sm:pl-6 min-w-[160px] relative z-10">
+                          <div className="text-left sm:text-right">
+                            <p className="text-[10px] text-white/40 uppercase tracking-widest">
+                              Total Bayar
+                            </p>
+                            <p className="font-black text-lg text-white">
+                              Rp {trx.final_price.toLocaleString("id-ID")}
+                            </p>
+                          </div>
+
+                          <Link
+                            to={`/transactions/${trx.id}`}
+                            className={`mt-4 sm:mt-0 w-full sm:w-auto px-6 py-3 rounded-xl text-center text-xs font-bold uppercase tracking-widest transition-all ${
+                              trx.status === "pending" ||
+                              trx.status === "rejected"
+                                ? "stage-gradient text-charcoal shadow-[0_0_15px_rgba(255,143,199,0.3)] hover:scale-105 active:scale-95"
+                                : "bg-white/5 border border-white/10 text-white hover:bg-white/10 hover:border-soft-pink/50"
+                            }`}
+                          >
+                            {trx.status === "pending" ||
+                            trx.status === "rejected"
+                              ? "Upload Bukti"
+                              : "Lihat E-Ticket"}
+                          </Link>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ===================== MENU 2: GENERAL (PROFIL) ===================== */}
             {activeMenu === "general" && (
               <div className="animate-in fade-in duration-300">
+                {/* ... (Semua isi UI Profil Anda diletakkan di sini, tidak ada yang diubah) ... */}
                 <section className="flex flex-col md:flex-row items-center gap-8 mb-12">
                   <div className="relative group">
                     <div className="w-32 h-32 md:w-40 md:h-40 rounded-full overflow-hidden border-4 border-charcoal bg-charcoal shadow-[0_0_20px_rgba(255,143,199,0.15)] flex items-center justify-center">
@@ -252,7 +425,7 @@ export default function Profile() {
                     </button>
                   </div>
                   <div className="text-center md:text-left space-y-2">
-                    <h3 className="text-xl font-bold font-headline text-white">
+                    <h3 className="text-xl font-bold font-headline text-white uppercase tracking-tighter">
                       Foto Profil
                     </h3>
                     <p className="text-sm text-white/60 max-w-xs">
@@ -336,13 +509,13 @@ export default function Profile() {
                   </div>
                   <div className="md:col-span-2 flex gap-4 pt-6 border-t border-white/5">
                     <button
-                      className="flex-[2] stage-gradient text-charcoal py-4 rounded-lg font-bold text-lg hover:brightness-110 transition-all"
+                      className="flex-[2] stage-gradient text-charcoal py-4 rounded-lg font-bold text-lg hover:brightness-110 transition-all uppercase tracking-widest"
                       type="submit"
                     >
                       Simpan Perubahan
                     </button>
                     <button
-                      className="flex-1 border border-white/20 text-white/60 py-4 rounded-lg font-bold hover:bg-white/5 transition-all"
+                      className="flex-1 border border-white/20 text-white/60 py-4 rounded-lg font-bold hover:bg-white/5 transition-all uppercase tracking-widest text-sm"
                       type="button"
                       onClick={handleCancel}
                     >
@@ -353,11 +526,12 @@ export default function Profile() {
               </div>
             )}
 
-            {/* ===================== MENU SECURITY (PASSWORD) ===================== */}
+            {/* ===================== MENU 3: SECURITY (PASSWORD) ===================== */}
             {activeMenu === "security" && (
               <div className="animate-in fade-in duration-300">
+                {/* ... (UI Security Anda diletakkan di sini, utuh 100%) ... */}
                 <div className="mb-8">
-                  <h3 className="text-xl font-bold font-headline text-white mb-2">
+                  <h3 className="text-2xl font-bold font-headline text-white mb-2 uppercase tracking-tighter">
                     Keamanan & Kata Sandi
                   </h3>
                   <p className="text-sm text-white/60">
@@ -370,7 +544,6 @@ export default function Profile() {
                   className="space-y-6 max-w-lg"
                   onSubmit={handleSavePassword}
                 >
-                  {/* Password Sekarang */}
                   <div className="space-y-2">
                     <label className="block text-xs uppercase tracking-[0.2em] font-bold text-light-pink ml-1">
                       Password Sekarang
@@ -395,7 +568,6 @@ export default function Profile() {
 
                   <div className="h-4 border-b border-white/5 mb-4"></div>
 
-                  {/* Password Baru */}
                   <div className="space-y-2">
                     <label className="block text-xs uppercase tracking-[0.2em] font-bold text-light-pink ml-1">
                       Password Baru
@@ -416,7 +588,6 @@ export default function Profile() {
                         {showNew ? "visibility_off" : "visibility"}
                       </span>
                     </div>
-                    {/* Indikator Kekuatan */}
                     <div className="flex gap-1 mt-2 items-center">
                       <div
                         className={`h-1 flex-1 rounded-full ${strength >= 1 ? "bg-red-400" : "bg-white/10"}`}
@@ -439,7 +610,6 @@ export default function Profile() {
                     </div>
                   </div>
 
-                  {/* Konfirmasi Password */}
                   <div className="space-y-2">
                     <label className="block text-xs uppercase tracking-[0.2em] font-bold text-light-pink ml-1">
                       Konfirmasi Password
@@ -468,7 +638,7 @@ export default function Profile() {
                   </div>
 
                   <button
-                    className="w-full mt-8 py-4 rounded-lg stage-gradient text-charcoal font-bold text-lg hover:brightness-110 transition-all disabled:opacity-50"
+                    className="w-full mt-8 py-4 rounded-lg stage-gradient text-charcoal font-bold text-lg hover:brightness-110 transition-all disabled:opacity-50 uppercase tracking-widest"
                     type="submit"
                     disabled={
                       !currentPassword ||

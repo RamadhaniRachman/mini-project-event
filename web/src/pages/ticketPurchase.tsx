@@ -24,8 +24,7 @@ export default function TicketPurchase() {
     type: string;
   } | null>(null);
 
-  // (Idealnya data ini di-fetch dari API /api/users/profile milik pembeli)
-  // 👇 STATE ASLI UNTUK KUPON REFERRAL & POIN 👇
+  // State Poin & Kupon
   const [hasCoupon, setHasCoupon] = useState(false);
   const [availablePoints, setAvailablePoints] = useState(0);
 
@@ -65,11 +64,10 @@ export default function TicketPurchase() {
       } catch (error) {
         console.error(error);
       } finally {
-        setIsLoading(false); // Mematikan loading screen saat data event selesai ditarik
+        setIsLoading(false);
       }
     };
 
-    // FUNGSI BARU: Mengambil data poin & kupon dari backend
     const fetchRewards = async () => {
       try {
         const token = localStorage.getItem("token");
@@ -89,7 +87,6 @@ export default function TicketPurchase() {
       }
     };
 
-    //  Panggil KEDUA fungsinya di sini jika ID event tersedia
     if (id) {
       fetchEvent();
       fetchRewards();
@@ -175,11 +172,11 @@ export default function TicketPurchase() {
   // 2. Diskon Kupon Referral (10%)
   let couponDiscountNominal = 0;
   if (isCouponApplied && priceAfterPromo > 0) {
-    couponDiscountNominal = priceAfterPromo * 0.1; // Potong 10%
+    couponDiscountNominal = priceAfterPromo * 0.1;
   }
   let priceAfterCoupon = priceAfterPromo - couponDiscountNominal;
 
-  // 3. Pajak & Layanan (Diasumsikan dihitung dari harga setelah promo/kupon)
+  // 3. Pajak & Layanan
   const serviceFee = subTotal > 0 ? 25000 : 0;
   const tax = priceAfterCoupon * 0.11;
   let totalBeforePoints = priceAfterCoupon + serviceFee + tax;
@@ -188,11 +185,9 @@ export default function TicketPurchase() {
   let pointsDiscountNominal = 0;
   const redeemVal = Number(pointsToRedeem) || 0;
   if (redeemVal > 0) {
-    // Poin tidak bisa memotong lebih dari total harga
     pointsDiscountNominal = Math.min(totalBeforePoints, redeemVal);
   }
 
-  // Total Akhir
   const total = totalBeforePoints - pointsDiscountNominal;
 
   // === PROSES CHECKOUT ===
@@ -219,16 +214,21 @@ export default function TicketPurchase() {
             eventId: id,
             selectedTickets: ticketsToBuy,
             promoCode: isPromoApplied ? promoCode : null,
-            useCoupon: isCouponApplied, // 👈 Kirim status kupon
-            redeemPoints: Number(pointsToRedeem) || 0, // 👈 Kirim jumlah poin
+            useCoupon: isCouponApplied,
+            redeemPoints: Number(pointsToRedeem) || 0,
           }),
         },
       );
 
       const result = await response.json();
+
+      // 👇 PENYESUAIAN ALUR BARU: Diarahkan ke Profile untuk Upload Bukti 👇
       if (response.ok) {
-        alert("🎉 Pembelian Berhasil! Cek email Anda untuk E-Ticket.");
-        navigate("/");
+        alert(
+          "⚠️ Pesanan Dibuat! Anda memiliki waktu 2 JAM untuk mengunggah bukti transfer.",
+        );
+        // Arahkan ke halaman Profile agar user bisa melihat menu Riwayat Transaksi-nya
+        navigate("/profile");
       } else {
         alert("Gagal: " + result.message);
       }
@@ -241,7 +241,7 @@ export default function TicketPurchase() {
 
   if (isLoading || !eventData) {
     return (
-      <div className="min-h-screen bg-charcoal flex justify-center items-center text-soft-pink font-bold animate-pulse text-2xl">
+      <div className="min-h-screen bg-charcoal flex justify-center items-center text-soft-pink font-bold animate-pulse text-2xl tracking-widest">
         MEMPERSIAPKAN TIKET...
       </div>
     );
@@ -254,7 +254,7 @@ export default function TicketPurchase() {
         <div className="flex justify-between items-center px-6 py-4 w-full max-w-screen-2xl mx-auto">
           <button
             onClick={() => navigate(-1)}
-            className="text-soft-pink hover:text-light-pink"
+            className="text-soft-pink hover:text-light-pink transition-colors"
           >
             <span className="material-symbols-outlined">arrow_back</span>
           </button>
@@ -270,7 +270,7 @@ export default function TicketPurchase() {
         <section className="relative rounded-2xl overflow-hidden bg-dark-gray min-h-[250px] flex items-end border border-white/5 shadow-2xl mt-6">
           <img
             className="absolute inset-0 w-full h-full object-cover opacity-60"
-            alt="Event"
+            alt={eventData.title}
             src={
               eventData.image_url ||
               "https://images.unsplash.com/photo-1459749411175-04bf5292ceea?auto=format&fit=crop&q=80"
@@ -284,7 +284,7 @@ export default function TicketPurchase() {
             <h2 className="text-4xl md:text-5xl font-black font-headline text-white tracking-tighter leading-none mb-4 italic uppercase">
               {eventData.title}
             </h2>
-            <p className="text-white/80 font-medium flex items-center gap-2">
+            <p className="text-white/80 font-medium flex items-center gap-2 text-sm">
               <span className="material-symbols-outlined text-soft-pink text-sm">
                 location_on
               </span>
@@ -296,7 +296,7 @@ export default function TicketPurchase() {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
           {/* Left Column (Tiket Selection) */}
           <div className="lg:col-span-7 space-y-8">
-            <h2 className="text-3xl font-black font-headline tracking-tight uppercase text-white">
+            <h2 className="text-2xl md:text-3xl font-black font-headline tracking-tight uppercase text-white">
               Pilih Kategori Tiket
             </h2>
             <div className="space-y-4">
@@ -330,7 +330,7 @@ export default function TicketPurchase() {
                                 ticket.available_seats,
                               )
                             }
-                            className="w-10 h-10 flex items-center justify-center text-white/40 hover:text-white"
+                            className="w-10 h-10 flex items-center justify-center text-white/40 hover:text-white transition-colors"
                           >
                             <span className="material-symbols-outlined">
                               remove
@@ -347,7 +347,7 @@ export default function TicketPurchase() {
                                 ticket.available_seats,
                               )
                             }
-                            className="w-10 h-10 flex items-center justify-center bg-charcoal text-white hover:text-soft-pink hover:border-soft-pink border border-transparent rounded-md"
+                            className="w-10 h-10 flex items-center justify-center bg-charcoal text-white hover:text-soft-pink hover:border-soft-pink border border-transparent rounded-md transition-all"
                           >
                             <span className="material-symbols-outlined">
                               add
@@ -355,7 +355,7 @@ export default function TicketPurchase() {
                           </button>
                         </div>
                       ) : (
-                        <span className="text-red-400 font-bold uppercase italic border border-red-500/30 px-4 py-2 rounded-lg bg-red-500/10">
+                        <span className="text-red-400 font-bold uppercase italic border border-red-500/30 px-4 py-2 rounded-lg bg-red-500/10 text-sm tracking-widest">
                           Habis
                         </span>
                       )}
@@ -379,7 +379,7 @@ export default function TicketPurchase() {
                 </h4>
                 <div className="flex gap-2">
                   <input
-                    className="flex-grow bg-charcoal border border-white/10 rounded-lg py-3 px-4 text-white uppercase focus:border-soft-pink outline-none"
+                    className="flex-grow bg-charcoal border border-white/10 rounded-lg py-3 px-4 text-white uppercase focus:border-soft-pink outline-none transition-colors text-sm"
                     placeholder="Masukkan Kode"
                     type="text"
                     value={promoCode}
@@ -387,21 +387,21 @@ export default function TicketPurchase() {
                   />
                   <button
                     onClick={handleApplyPromo}
-                    className="bg-charcoal border border-white/10 hover:border-soft-pink hover:text-soft-pink px-6 rounded-lg text-white font-bold transition-all"
+                    className="bg-charcoal border border-white/10 hover:border-soft-pink hover:text-soft-pink px-6 rounded-lg text-white font-bold transition-all text-sm uppercase tracking-widest"
                   >
                     Pakai
                   </button>
                 </div>
                 {promoMessage && (
                   <p
-                    className={`text-xs mt-3 ${isPromoApplied ? "text-green-400" : "text-soft-pink"}`}
+                    className={`text-xs mt-3 font-bold ${isPromoApplied ? "text-green-400" : "text-soft-pink"}`}
                   >
                     {promoMessage}
                   </p>
                 )}
               </div>
 
-              {/* 👇 REWARD & POIN INPUT 👇 */}
+              {/* REWARD & POIN INPUT */}
               <div className="bg-dark-gray rounded-xl p-6 border border-white/5 shadow-xl">
                 <h4 className="text-sm font-bold tracking-widest uppercase mb-4 flex items-center gap-2 text-white">
                   <span className="material-symbols-outlined text-yellow-400 text-lg">
@@ -410,7 +410,6 @@ export default function TicketPurchase() {
                   Reward & Poin
                 </h4>
 
-                {/* Toggle Kupon Referral */}
                 {hasCoupon && (
                   <div className="mb-5 flex items-center justify-between p-3 bg-charcoal border border-white/10 rounded-lg">
                     <div>
@@ -433,7 +432,6 @@ export default function TicketPurchase() {
                   </div>
                 )}
 
-                {/* Input Tukar Poin */}
                 <div>
                   <div className="flex justify-between items-end mb-2">
                     <p className="text-sm font-bold text-white">Gunakan Poin</p>
@@ -443,7 +441,7 @@ export default function TicketPurchase() {
                   </div>
                   <div className="flex gap-2">
                     <input
-                      className="flex-grow bg-charcoal border border-white/10 rounded-lg py-2 px-4 text-white focus:border-soft-pink outline-none text-sm"
+                      className="flex-grow bg-charcoal border border-white/10 rounded-lg py-3 px-4 text-white focus:border-soft-pink outline-none text-sm transition-colors"
                       placeholder="Jumlah poin..."
                       type="number"
                       max={availablePoints}
@@ -458,7 +456,7 @@ export default function TicketPurchase() {
                     />
                     <button
                       onClick={() => setPointsToRedeem(availablePoints)}
-                      className="text-xs bg-white/5 border border-white/10 hover:border-soft-pink text-white px-4 rounded-lg transition-all font-bold"
+                      className="text-xs bg-white/5 border border-white/10 hover:border-soft-pink text-white px-5 rounded-lg transition-all font-bold tracking-widest"
                     >
                       MAX
                     </button>
@@ -467,8 +465,10 @@ export default function TicketPurchase() {
               </div>
 
               {/* Order Summary */}
-              <div className="bg-dark-gray rounded-2xl p-6 md:p-8 shadow-2xl space-y-6 border border-white/5">
-                <h4 className="text-xl font-bold font-headline text-white">
+              <div className="bg-dark-gray rounded-2xl p-6 md:p-8 shadow-2xl space-y-6 border border-white/5 relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-soft-pink/5 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
+
+                <h4 className="text-xl font-bold font-headline text-white uppercase tracking-tighter">
                   Ringkasan Pesanan
                 </h4>
 
@@ -486,10 +486,10 @@ export default function TicketPurchase() {
                             key={t.id}
                             className="flex justify-between items-center text-sm"
                           >
-                            <span className="text-white/70">
+                            <span className="text-white/70 font-medium">
                               {qty}x {t.name}
                             </span>
-                            <span className="font-semibold text-white">
+                            <span className="font-bold text-white">
                               Rp {(qty * t.price).toLocaleString("id-ID")}
                             </span>
                           </div>
@@ -500,42 +500,49 @@ export default function TicketPurchase() {
 
                     <div className="pt-4 border-t border-white/10 space-y-3">
                       <div className="flex justify-between items-center text-xs">
-                        <span className="text-white/40">Biaya Layanan</span>
+                        <span className="text-white/40 uppercase tracking-widest">
+                          Biaya Layanan
+                        </span>
                         <span className="font-semibold text-white/80">
                           Rp {serviceFee.toLocaleString("id-ID")}
                         </span>
                       </div>
                       <div className="flex justify-between items-center text-xs">
-                        <span className="text-white/40">Pajak (11%)</span>
+                        <span className="text-white/40 uppercase tracking-widest">
+                          Pajak (11%)
+                        </span>
                         <span className="font-semibold text-white/80">
                           Rp {tax.toLocaleString("id-ID")}
                         </span>
                       </div>
 
-                      {/* Baris Diskon Promo */}
                       {isPromoApplied && promoDiscountNominal > 0 && (
                         <div className="flex justify-between items-center text-xs text-green-400 font-bold">
-                          <span>Promo ({promoCode})</span>
+                          <span className="uppercase tracking-widest">
+                            Promo ({promoCode})
+                          </span>
                           <span>
                             - Rp {promoDiscountNominal.toLocaleString("id-ID")}
                           </span>
                         </div>
                       )}
 
-                      {/* Baris Diskon Kupon */}
                       {isCouponApplied && couponDiscountNominal > 0 && (
                         <div className="flex justify-between items-center text-xs text-green-400 font-bold">
-                          <span>Kupon Referral (10%)</span>
+                          <span className="uppercase tracking-widest">
+                            Kupon (10%)
+                          </span>
                           <span>
                             - Rp {couponDiscountNominal.toLocaleString("id-ID")}
                           </span>
                         </div>
                       )}
 
-                      {/* Baris Diskon Poin */}
                       {pointsDiscountNominal > 0 && (
                         <div className="flex justify-between items-center text-xs text-yellow-400 font-bold">
-                          <span>Tukar Poin</span>
+                          <span className="uppercase tracking-widest">
+                            Tukar Poin
+                          </span>
                           <span>
                             - Rp {pointsDiscountNominal.toLocaleString("id-ID")}
                           </span>
@@ -557,19 +564,20 @@ export default function TicketPurchase() {
                   <button
                     onClick={handleCheckout}
                     disabled={subTotal === 0 || isProcessing}
-                    className={`w-full py-4 rounded-xl font-black text-lg tracking-widest uppercase flex items-center justify-center gap-3 transition-all duration-300 ${
-                      subTotal > 0 && !isProcessing
-                        ? "stage-gradient text-charcoal shadow-[0_0_20px_rgba(255,143,199,0.3)] hover:brightness-110 active:scale-95"
-                        : "bg-charcoal text-white/20 cursor-not-allowed border border-white/5"
-                    }`}
+                    className={`w-full py-4 rounded-xl font-black text-lg tracking-widest uppercase flex items-center justify-center gap-3 transition-all duration-300 ${subTotal > 0 && !isProcessing ? "stage-gradient text-charcoal shadow-[0_0_20px_rgba(255,143,199,0.3)] hover:brightness-110 active:scale-95" : "bg-charcoal text-white/20 cursor-not-allowed border border-white/5"}`}
                   >
                     <span>
                       {isProcessing ? "Memproses..." : "Bayar Sekarang"}
                     </span>
-                    <span className="material-symbols-outlined font-bold">
-                      arrow_forward
-                    </span>
+                    {!isProcessing && (
+                      <span className="material-symbols-outlined font-bold">
+                        arrow_forward
+                      </span>
+                    )}
                   </button>
+                  <p className="text-[10px] text-center text-white/40 mt-4 uppercase tracking-widest font-bold">
+                    *Waktu upload bukti pembayaran: 2 Jam
+                  </p>
                 </div>
               </div>
             </div>

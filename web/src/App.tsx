@@ -1,4 +1,9 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router"; // Jika error, ganti "react-router" menjadi "react-router-dom"
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  Navigate,
+} from "react-router-dom"; // Pastikan menggunakan react-router-dom
 
 import Register from "./pages/register";
 import Login from "./pages/login";
@@ -14,11 +19,13 @@ import Attendees from "./pages/attendees";
 import EventDetailCustomer from "./pages/eventDetailCustomer";
 import TicketPurchase from "./pages/ticketPurchase";
 import Promotions from "./pages/promotions";
-import TransactionVerification from "./components/transactionVerification";
+import TransactionVerificationOrganizer from "./components/transactionVerificationOrganizer";
 import Profile from "./pages/profile";
 import Security from "./pages/security";
 import ForgotPassword from "./pages/forgotPassword";
 import ResetPassword from "./pages/resetPassword";
+import TransactionVerificationCustomer from "./components/transactionVerificationCustomer";
+
 export default function App() {
   return (
     <>
@@ -37,25 +44,36 @@ export default function App() {
               <Route path="/events/:id" element={<EventDetailCustomer />} />
               <Route path="/checkout/:id" element={<TicketPurchase />} />
               <Route path="/promotions" element={<Promotions />} />
-              {/* NESTED ROUTES DASHBOARD */}
+
+              {/* 👇 RUTE UPLOAD BUKTI CUSTOMER (Perhatikan garis miring di awal) */}
+              <Route
+                path="/transactions/:id"
+                element={<TransactionVerificationCustomer />}
+              />
+
+              {/* NESTED ROUTES DASHBOARD (ORGANIZER) */}
               <Route path="/dashboard" element={<Dashboard />}>
-                <Route index element={<DashboardOverview />} />{" "}
-                {/* /dashboard */}
+                <Route index element={<DashboardOverview />} />
                 <Route
                   path="transactions"
                   element={<TransactionsOrganizer />}
-                />{" "}
+                />
+
+                {/* 👇 Rute Verifikasi Bukti Organizer */}
                 <Route
                   path="transactions/:id"
-                  element={<TransactionVerification />}
-                />{" "}
+                  element={<TransactionVerificationOrganizer />}
+                />
+
                 <Route path="events" element={<MyEvents />} />
                 <Route path="events/edit/:id" element={<EventDetail />} />
                 <Route path="attendees" element={<Attendees />} />
                 <Route path="reports" element={<Reports />} />
                 <Route path="create-event" element={<CreateEvent />} />
               </Route>
-              <Route path="*" element={<Navigate to="/login" replace />} />{" "}
+
+              {/* Fallback jika URL ngawur */}
+              <Route path="*" element={<Navigate to="/login" replace />} />
             </Routes>
           </main>
         </div>

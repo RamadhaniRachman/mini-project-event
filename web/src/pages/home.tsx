@@ -15,7 +15,6 @@ export default function Home() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedLocation, setSelectedLocation] = useState("Semua");
 
-  // Daftar Kota (Bisa disesuaikan dengan kebutuhan)
   const locations = [
     "Semua",
     "Jakarta",
@@ -25,22 +24,44 @@ export default function Home() {
     "Yogyakarta",
   ];
 
-  // 2. Fungsi Fetch Event
+  // 🔴 1. FUNGSI CEK SESI USER (Tadi tidak sengaja terhapus)
+  useEffect(() => {
+    const userString = localStorage.getItem("user");
+    const token = localStorage.getItem("token");
+
+    if (userString && token) {
+      const userData = JSON.parse(userString);
+      const userRole = String(userData.role || "").toLowerCase();
+
+      // Kembalikan Organizer ke habitatnya
+      if (userRole === "organizer") {
+        window.location.href = "/dashboard";
+        return;
+      }
+      setUser(userData);
+    } else {
+      // Bersihkan jika token nyangkut
+      localStorage.removeItem("user");
+      localStorage.removeItem("token");
+      setUser(null);
+    }
+  }, []);
+
+  // 🔴 2. FUNGSI FETCH EVENT
   useEffect(() => {
     const fetchPublicEvents = async () => {
       setIsLoading(true);
       try {
-        // Nanti jika backend sudah di-push ke Vercel, baru ubah lagi pakai import.meta.env
-        const baseUrl = "http://localhost:8000";
+        // Kita gunakan kembali link Vercel agar data event Anda muncul kembali
+        const baseUrl = (
+          import.meta.env.VITE_PROJECT_API || "http://localhost:8000"
+        ).replace(/\/$/, "");
 
-        // Merakit URL dengan aman
         const url = new URL(`${baseUrl}/api/events/public`);
 
         if (selectedLocation !== "Semua") {
           url.searchParams.append("location", selectedLocation);
         }
-
-        console.log("URL yang ditembak:", url.toString()); // 👈 Pastikan URL ini localhost!
 
         const response = await fetch(url.toString());
         if (response.ok) {
@@ -55,7 +76,8 @@ export default function Home() {
     };
 
     fetchPublicEvents();
-  }, [selectedLocation]); // 👈 Refresh data otomatis saat lokasi diubah
+  }, [selectedLocation]);
+
   const handleLogout = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
@@ -82,8 +104,7 @@ export default function Home() {
     return lowest === 0 ? "Gratis" : `Rp ${lowest.toLocaleString("id-ID")}`;
   };
 
-  // 🔴 LOGIKA PENCARIAN (Berdasarkan Judul/Kategori) di Frontend 🔴
-  // Karena lokasi sudah difilter oleh Backend, kita hanya memfilter teks di sini
+  // Logika Pencarian (Berdasarkan Judul/Kategori) di Frontend
   const filteredEvents = events.filter((event) => {
     const query = searchQuery.toLowerCase();
     const title = event.title?.toLowerCase() || "";
@@ -110,7 +131,7 @@ export default function Home() {
             </a>
 
             <div className="flex items-center gap-4 ml-0 md:ml-4">
-              {/* User Profile / Login Button */}
+              {/* 🔴 TOMBOL PROFIL YANG BENAR 🔴 */}
               {user ? (
                 <Link
                   to="/profile"
@@ -136,7 +157,7 @@ export default function Home() {
       </header>
 
       <main className="pt-24 pb-20 max-w-7xl mx-auto px-6">
-        {/* Featured Hero (Hanya tampil jika tidak ada pencarian) */}
+        {/* Featured Hero */}
         {!searchQuery && (
           <section className="mb-10">
             <div className="relative w-full h-[450px] md:h-[550px] rounded-2xl overflow-hidden group border border-white/5 shadow-2xl shadow-black/40">
@@ -174,7 +195,7 @@ export default function Home() {
           </section>
         )}
 
-        {/* --- SECTION FILTER & SEARCH BARU --- */}
+        {/* --- SECTION FILTER & SEARCH --- */}
         <div className="flex flex-col md:flex-row gap-4 mb-8 bg-dark-gray p-4 rounded-2xl border border-white/5 shadow-xl">
           {/* Kolom Pencarian */}
           <div className="flex-1 relative">
@@ -216,8 +237,6 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Category Filter Pills */}
-
         {/* Event Grid Header */}
         <div className="flex justify-between items-end mb-8">
           <div>
@@ -239,7 +258,7 @@ export default function Home() {
           </div>
         </div>
 
-        {/* 🔴 EVENT GRID DINAMIS DARI DATABASE 🔴 */}
+        {/* EVENT GRID DINAMIS DARI DATABASE */}
         {isLoading ? (
           <div className="flex justify-center items-center h-48 text-soft-pink font-headline font-bold tracking-widest animate-pulse">
             MEMUAT STAGE...
@@ -286,7 +305,7 @@ export default function Home() {
               const imageSrc = event.image_url
                 ? event.image_url.startsWith("http")
                   ? event.image_url
-                  : `http://localhost:8000/${event.image_url}`
+                  : `${(import.meta.env.VITE_PROJECT_API || "http://localhost:8000").replace(/\/$/, "")}/${event.image_url}`
                 : "https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?auto=format&fit=crop&q=80&w=400";
 
               return (

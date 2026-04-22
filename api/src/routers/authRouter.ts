@@ -9,7 +9,7 @@ import {
   forgotPassword,
   resetPassword,
 } from "../controllers/userController.js";
-import { upload } from "../middleware/uploadMiddleware.js";
+import { uploadCloud } from "../middleware/uploadMiddleware.js";
 const router = express.Router();
 
 // --- PUBLIC ROUTES (Tidak butuh token) ---
@@ -30,7 +30,12 @@ router.get(
     });
   },
 );
-router.put("/profile", verifyToken, upload.single("avatar"), updateProfile);
+router.put(
+  "/profile",
+  verifyToken,
+  uploadCloud.single("avatar"),
+  updateProfile,
+);
 router.put("/change-password", verifyToken, changePassword);
 router.post("/forgot-password", forgotPassword);
 router.post("/reset-password", resetPassword);
