@@ -64,10 +64,13 @@ export default function Dashboard() {
               </p>
             </div>
           </div>
-          <button className="w-full py-4 stage-gradient text-charcoal font-bold rounded-xl flex items-center justify-center gap-2 mb-10 hover:scale-[1.02] active:scale-95 transition-all">
+          <Link
+            to="/dashboard/create-event"
+            className="w-full py-4 stage-gradient text-charcoal font-bold rounded-xl flex items-center justify-center gap-2 mb-10 hover:scale-[1.02] active:scale-95 transition-all"
+          >
             <span className="material-symbols-outlined">add_circle</span>
             <span>Create Event</span>
-          </button>
+          </Link>
         </div>
 
         <nav className="flex-1 px-4 space-y-2">
@@ -117,15 +120,6 @@ export default function Dashboard() {
             <span className="material-symbols-outlined">analytics</span>
             <span className="font-label uppercase tracking-widest text-xs">
               Reports
-            </span>
-          </Link>
-          <Link
-            to="/settings"
-            className="flex items-center gap-4 px-4 py-3.5 text-white/40 font-medium hover:bg-white/5 hover:text-white transition-all rounded-lg"
-          >
-            <span className="material-symbols-outlined">settings</span>
-            <span className="font-label uppercase tracking-widest text-xs">
-              Settings
             </span>
           </Link>
         </nav>

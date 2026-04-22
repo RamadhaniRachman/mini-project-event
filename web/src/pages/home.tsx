@@ -50,16 +50,12 @@ export default function Home() {
         <CategoryFilter
           categories={categories}
           active={category}
-          onChange={(cat) => {
-            setCategory(cat === "ALL" ? "" : cat);
-            setPage(1);
-          }}
+          onChange={(cat: string) => setCategory(cat === "ALL" ? "" : cat)}
         />
-
         <EventSection
           loading={loading}
           events={events}
-          onClick={(id) => navigate(`/events/${id}`)}
+          onClick={(id: number) => navigate(`/events/${id}`)}
         />
 
         <Pagination page={page} setPage={setPage} />
