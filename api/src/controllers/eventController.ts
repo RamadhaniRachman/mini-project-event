@@ -10,29 +10,53 @@ export const getDashboardStats = async (
   try {
     const organizerId = req.user.id;
 
-    const [eventCount, transactionData] = await Promise.all([
-      // Menhgitung jumlah event yg dibuat organizer ini
-      prisma.events.count({
-        where: { organizer_id: organizerId },
-      }),
-      // Hitung total pendapatan dan tiket terjual dari transaksi yang sukses
-      prisma.transactions.aggregate({
-        where: {
-          event: { organizer_id: organizerId },
-          status: "success", // Menghitung transaksi yg berhasil saja
-        },
-        _sum: {
-          final_price: true,
-          quantity: true,
-        },
-      }),
-    ]);
+    const [eventCount, transactionData, totalSeats, recentTransactions] =
+      await Promise.all([
+        // 1. Menghitung jumlah event
+        prisma.events.count({ where: { organizer_id: organizerId } }),
+
+        // 2. Hitung total pendapatan, tiket terjual, dan jumlah transaksi (registrasi) dari transaksi sukses
+        prisma.transactions.aggregate({
+          where: { event: { organizer_id: organizerId }, status: "success" },
+          _sum: { final_price: true, quantity: true },
+          _count: { id: true },
+        }),
+
+        // 3. Hitung total kapasitas kursi dari semua event
+        prisma.tickets.aggregate({
+          where: { event: { organizer_id: organizerId } },
+          _sum: { available_seats: true },
+        }),
+
+        // 4. Tarik 5 transaksi terakhir (semua status)
+        prisma.transactions.findMany({
+          where: { event: { organizer_id: organizerId } },
+          include: {
+            user: { select: { name: true, email: true } },
+            event: { select: { title: true } },
+            ticket_type: { select: { name: true } },
+          },
+          orderBy: { created_at: "desc" },
+          take: 5,
+        }),
+      ]);
+
+    // Kalkulasi Kapasitas
+    const sold = transactionData._sum.quantity || 0;
+    const available = totalSeats._sum.available_seats || 0;
+    const totalCapacity = sold + available;
+    const occupancyRate =
+      totalCapacity > 0 ? Math.round((sold / totalCapacity) * 100) : 0;
+
     return res.status(200).json({
       stats: {
         totalEvents: eventCount,
         totalRevenue: transactionData._sum.final_price || 0,
-        totalTicketsSold: transactionData._sum.quantity || 0,
+        totalTicketsSold: sold,
+        totalRegistrations: transactionData._count.id || 0,
+        occupancyRate: occupancyRate,
       },
+      recentTransactions,
     });
   } catch (error) {
     console.error("Dashboard stats error", error);
@@ -258,7 +282,7 @@ export const updateEvent = async (
 };
 
 // Fungsi untuk Mengambil Daftar Peserta (Berdasarkan Transaksi Sukses)
-export const getOrganizerAttendees = async (
+export const getAttendees = async (
   req: CustomRequest,
   res: Response,
 ): Promise<any> => {
@@ -286,5 +310,182 @@ export const getOrganizerAttendees = async (
   } catch (error) {
     console.error("Get attendees error:", error);
     return res.status(500).json({ message: "Gagal memuat daftar peserta" });
+  }
+};
+
+// Fungsi untuk MENGAMBIL SEMUA EVENT untuk Publik (Tanpa Token)
+export const getPublicEvents = async (
+  req: Request,
+  res: Response,
+): Promise<any> => {
+  try {
+    const events = await prisma.events.findMany({
+      include: { tickets: true }, // Bawa data tiket agar kita tahu harga termurahnya
+      orderBy: { created_at: "desc" }, // Tampilkan dari yang paling baru
+      take: 10, // Batasi 10 event terbaru untuk halaman home
+    });
+
+    return res.status(200).json({ data: events });
+  } catch (error) {
+    console.error("Error get public events:", error);
+    return res.status(500).json({ message: "Gagal memuat daftar event" });
+  }
+};
+
+// Fungsi untuk Membuat Kode Promo (Khusus Organizer)
+// Fungsi untuk Membuat Kode Promo (Khusus Organizer)
+export const createPromotion = async (
+  req: CustomRequest,
+  res: Response,
+): Promise<any> => {
+  try {
+    const organizerId = req.user.id;
+    const userRole = req.user.role; // 👈 Ambil role dari token JWT
+    const eventId = Number(req.params.id);
+    const {
+      promo_code,
+      discount_value,
+      discount_type,
+      valid_from,
+      valid_until,
+      quota,
+    } = req.body;
+
+    // 👇 1. "SATPAM" UTAMA: Cek apakah dia benar-benar Organizer
+    if (userRole !== "organizer") {
+      return res.status(403).json({
+        message:
+          "Akses Ditolak! Hanya Organizer yang dapat membuat kode promo.",
+      });
+    }
+
+    // 2. Pastikan event ini benar-benar milik organizer yang sedang login
+    const event = await prisma.events.findFirst({
+      where: { id: eventId, organizer_id: organizerId },
+    });
+
+    if (!event) {
+      return res
+        .status(403)
+        .json({ message: "Event tidak ditemukan atau bukan milik Anda." });
+    }
+
+    // 3. Pastikan kode promo belum pernah dipakai di event ini
+    const existingPromo = await prisma.promotions.findFirst({
+      where: { promo_code: promo_code.toUpperCase(), event_id: eventId },
+    });
+
+    if (existingPromo) {
+      return res
+        .status(400)
+        .json({ message: "Kode promo ini sudah ada untuk event tersebut." });
+    }
+
+    // 4. Simpan promo ke database
+    const newPromo = await prisma.promotions.create({
+      data: {
+        promo_code: promo_code.toUpperCase(),
+        discount_value: Number(discount_value),
+        discount_type, // "NOMINAL" atau "PERCENTAGE"
+        valid_from: new Date(valid_from),
+        valid_until: new Date(valid_until),
+        quota: Number(quota),
+        event_id: eventId,
+      },
+    });
+
+    return res
+      .status(201)
+      .json({ message: "Kode Promo berhasil dibuat!", data: newPromo });
+  } catch (error) {
+    console.error("Create promo error:", error);
+    return res.status(500).json({ message: "Gagal membuat kode promo" });
+  }
+};
+
+// Fungsi untuk Mengambil Semua Promo Milik Organizer
+export const getOrganizerPromotions = async (
+  req: CustomRequest,
+  res: Response,
+): Promise<any> => {
+  try {
+    const organizerId = req.user.id;
+
+    // Tarik semua promosi dari event-event yang dimiliki organizer ini
+    const promotions = await prisma.promotions.findMany({
+      where: {
+        event: { organizer_id: organizerId },
+      },
+      include: {
+        event: { select: { title: true, image_url: true } }, // Bawa judul dan gambar event
+      },
+      orderBy: { created_at: "desc" },
+    });
+
+    return res.status(200).json({ data: promotions });
+  } catch (error) {
+    console.error("Error get promotions:", error);
+    return res.status(500).json({ message: "Gagal mengambil daftar promosi" });
+  }
+};
+
+// Fungsi untuk Mengambil Data Laporan Analitik
+export const getOrganizerReports = async (
+  req: CustomRequest,
+  res: Response,
+): Promise<any> => {
+  try {
+    const organizerId = req.user.id;
+
+    // 1. Ambil semua transaksi yang SUKSES
+    const transactions = await prisma.transactions.findMany({
+      where: { event: { organizer_id: organizerId }, status: "success" },
+      include: {
+        event: {
+          select: {
+            id: true,
+            title: true,
+            image_url: true,
+            event_date: true,
+            location: true,
+          },
+        },
+      },
+      orderBy: { created_at: "asc" },
+    });
+
+    // 2. Kalkulasi Top Performing Events (Ranking)
+    const eventStats: Record<number, any> = {};
+    transactions.forEach((trx) => {
+      const ev = trx.event;
+      if (!eventStats[ev.id]) {
+        eventStats[ev.id] = {
+          id: ev.id,
+          title: ev.title,
+          image_url: ev.image_url,
+          location: ev.location,
+          date: ev.event_date,
+          revenue: 0,
+          tickets: 0,
+        };
+      }
+      eventStats[ev.id].revenue += trx.final_price;
+      eventStats[ev.id].tickets += trx.quantity;
+    });
+
+    // Urutkan dari pendapatan terbesar, ambil Top 3
+    const topEvents = Object.values(eventStats)
+      .sort((a: any, b: any) => b.revenue - a.revenue)
+      .slice(0, 3);
+
+    return res.status(200).json({
+      data: {
+        transactions, // Kirim data mentah transaksi agar frontend bisa menghitung harian/bulanan
+        topEvents,
+      },
+    });
+  } catch (error) {
+    console.error("Report error:", error);
+    return res.status(500).json({ message: "Gagal memuat data laporan." });
   }
 };

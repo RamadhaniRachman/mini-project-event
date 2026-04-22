@@ -1,6 +1,136 @@
+import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+
 export default function Reports() {
+  const navigate = useNavigate();
+  const [isLoading, setIsLoading] = useState(true);
+  const [filterMode, setFilterMode] = useState<"HARIAN" | "BULANAN">("HARIAN");
+
+  // States Data
+  const [topEvents, setTopEvents] = useState<any[]>([]);
+  const [chartData, setChartData] = useState<
+    { label: string; revenue: number }[]
+  >([]);
+  const [maxRevenue, setMaxRevenue] = useState(1);
+
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      navigate("/login");
+      return;
+    }
+
+    const fetchReports = async () => {
+      try {
+        const response = await fetch(
+          "http://localhost:8000/api/events/reports",
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          },
+        );
+        if (response.ok) {
+          const result = await response.json();
+          setTopEvents(result.data.topEvents);
+          processChartData(result.data.transactions, filterMode);
+        }
+      } catch (error) {
+        console.error("Gagal load report", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchReports();
+  }, []);
+
+  // Memproses ulang grafik jika tombol filter (Harian/Bulanan) diklik
+  const processChartData = (transactions: any[], mode: string) => {
+    let rawData: { label: string; revenue: number }[] = [];
+
+    if (mode === "HARIAN") {
+      // Hitung 7 Hari Terakhir
+      const days = ["Min", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"];
+      const last7Days = Array.from({ length: 7 }).map((_, i) => {
+        const d = new Date();
+        d.setDate(d.getDate() - (6 - i));
+        return {
+          dateString: d.toDateString(),
+          label: days[d.getDay()],
+          revenue: 0,
+        };
+      });
+
+      transactions.forEach((trx) => {
+        const trxDate = new Date(trx.created_at).toDateString();
+        const dayMatch = last7Days.find((d) => d.dateString === trxDate);
+        if (dayMatch) dayMatch.revenue += trx.final_price;
+      });
+      rawData = last7Days;
+    } else {
+      // Hitung 12 Bulan (Jan - Des)
+      const months = [
+        "Jan",
+        "Feb",
+        "Mar",
+        "Apr",
+        "Mei",
+        "Jun",
+        "Jul",
+        "Ags",
+        "Sep",
+        "Okt",
+        "Nov",
+        "Des",
+      ];
+      const currentYear = new Date().getFullYear();
+      const monthData = months.map((m) => ({ label: m, revenue: 0 }));
+
+      transactions.forEach((trx) => {
+        const date = new Date(trx.created_at);
+        if (date.getFullYear() === currentYear) {
+          monthData[date.getMonth()].revenue += trx.final_price;
+        }
+      });
+      rawData = monthData;
+    }
+
+    setChartData(rawData);
+    // Cari nilai tertinggi untuk menghitung persentase tinggi grafik batang
+    const maxVal = Math.max(...rawData.map((d) => d.revenue), 100000); // minimal 100rb agar grafik tidak error
+    setMaxRevenue(maxVal);
+  };
+
+  // Handler Ganti Filter
+  const handleFilterChange = (mode: "HARIAN" | "BULANAN") => {
+    setFilterMode(mode);
+    const token = localStorage.getItem("token");
+    fetch("http://localhost:8000/api/events/reports", {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((res) => res.json())
+      .then((result) => processChartData(result.data.transactions, mode));
+  };
+
+  // Format Helper
+  const formatRupiah = (angka: number) => {
+    if (angka >= 1000000000) return `Rp ${(angka / 1000000000).toFixed(1)}M`;
+    if (angka >= 1000000) return `Rp ${(angka / 1000000).toFixed(1)}Jt`;
+    return `Rp ${angka.toLocaleString("id-ID")}`;
+  };
+  const formatDate = (date: string) =>
+    new Date(date).toLocaleDateString("id-ID", {
+      day: "numeric",
+      month: "short",
+    });
+
+  if (isLoading)
+    return (
+      <div className="h-screen flex items-center justify-center text-soft-pink font-bold animate-pulse tracking-widest text-xl">
+        MENGANALISIS DATA...
+      </div>
+    );
+
   return (
-    <div className="p-4 md:p-8 max-w-400 mx-auto animate-in fade-in duration-500 pb-24 md:pb-12 space-y-12">
+    <div className="p-4 md:p-8 max-w-[1600px] mx-auto animate-in fade-in duration-500 pb-24 md:pb-12 space-y-12">
       {/* Header & Filter Section */}
       <section className="flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div className="space-y-1">
@@ -13,20 +143,20 @@ export default function Reports() {
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex bg-dark-gray border border-white/5 p-1 rounded-xl">
-            <button className="px-4 py-2 text-xs font-bold rounded-lg text-white/40 hover:text-white transition-colors">
+            <button
+              onClick={() => handleFilterChange("HARIAN")}
+              className={`px-4 py-2 text-xs font-bold rounded-lg transition-colors ${filterMode === "HARIAN" ? "bg-charcoal text-soft-pink border border-white/5" : "text-white/40 hover:text-white"}`}
+            >
               Harian
             </button>
-            <button className="px-4 py-2 text-xs font-bold rounded-lg bg-charcoal text-soft-pink shadow-sm border border-white/5">
+            <button
+              onClick={() => handleFilterChange("BULANAN")}
+              className={`px-4 py-2 text-xs font-bold rounded-lg transition-colors ${filterMode === "BULANAN" ? "bg-charcoal text-soft-pink border border-white/5" : "text-white/40 hover:text-white"}`}
+            >
               Bulanan
             </button>
-            <button className="px-4 py-2 text-xs font-bold rounded-lg text-white/40 hover:text-white transition-colors">
+            <button className="px-4 py-2 text-xs font-bold rounded-lg text-white/20 cursor-not-allowed">
               Tahunan
-            </button>
-            <button className="px-4 py-2 text-xs font-bold rounded-lg text-white/40 hover:text-white transition-colors flex items-center gap-1">
-              Custom{" "}
-              <span className="material-symbols-outlined text-sm">
-                calendar_today
-              </span>
             </button>
           </div>
           <button className="flex items-center gap-2 bg-soft-pink/10 border border-soft-pink/20 text-soft-pink font-bold px-5 py-2.5 rounded-xl hover:bg-soft-pink/20 transition-all active:scale-95">
@@ -46,280 +176,121 @@ export default function Reports() {
                 Pertumbuhan Penjualan
               </h3>
               <p className="text-white/40 text-sm italic">
-                Pendapatan kotor vs tiket terjual
+                Pendapatan kotor event ({filterMode.toLowerCase()})
               </p>
             </div>
-            <div className="flex items-center gap-4 text-xs font-bold">
-              <div className="flex items-center gap-2">
-                <span className="w-3 h-3 rounded-full bg-soft-pink shadow-[0_0_8px_rgba(255,143,199,0.5)]"></span>
-                <span className="text-white/60 uppercase tracking-wider">
-                  Revenue
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="w-3 h-3 rounded-full bg-white/20"></span>
-                <span className="text-white/60 uppercase tracking-wider">
-                  Tickets
-                </span>
-              </div>
-            </div>
           </div>
-          {/* Mock Line Chart */}
+
+          {/* Dynamic Chart Area */}
           <div className="h-64 flex items-end justify-between gap-2 relative">
-            {/* Grid Lines */}
             <div className="absolute inset-0 flex flex-col justify-between pointer-events-none">
               <div className="w-full border-t border-white/5"></div>
               <div className="w-full border-t border-white/5"></div>
               <div className="w-full border-t border-white/5"></div>
               <div className="w-full border-t border-white/5"></div>
             </div>
-            {/* Bars/Lines visualization */}
-            <div className="flex-1 bg-linear-to-t from-soft-pink/20 to-soft-pink/5 h-[40%] rounded-t-lg relative group/bar hover:from-soft-pink/30">
-              <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-2 h-2 rounded-full bg-soft-pink"></div>
-            </div>
-            <div className="flex-1 bg-linear-to-t from-soft-pink/20 to-soft-pink/5 h-[55%] rounded-t-lg relative group/bar hover:from-soft-pink/30">
-              <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-2 h-2 rounded-full bg-soft-pink"></div>
-            </div>
-            <div className="flex-1 bg-linear-to-t from-soft-pink/20 to-soft-pink/5 h-[45%] rounded-t-lg relative group/bar hover:from-soft-pink/30">
-              <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-2 h-2 rounded-full bg-soft-pink"></div>
-            </div>
-            <div className="flex-1 bg-linear-to-t from-soft-pink/20 to-soft-pink/5 h-[75%] rounded-t-lg relative group/bar hover:from-soft-pink/30">
-              <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-2 h-2 rounded-full bg-soft-pink"></div>
-            </div>
-            <div className="flex-1 bg-linear-to-t from-soft-pink/30 to-soft-pink/10 h-[90%] rounded-t-lg relative group/bar border-t border-soft-pink/50">
-              <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-3 h-3 rounded-full bg-light-pink shadow-[0_0_15px_rgba(255,193,227,0.8)]"></div>
-            </div>
-            <div className="flex-1 bg-linear-to-t from-soft-pink/20 to-soft-pink/5 h-[65%] rounded-t-lg relative group/bar hover:from-soft-pink/30">
-              <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-2 h-2 rounded-full bg-soft-pink"></div>
-            </div>
-            <div className="flex-1 bg-linear-to-t from-soft-pink/20 to-soft-pink/5 h-[80%] rounded-t-lg relative group/bar hover:from-soft-pink/30">
-              <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-2 h-2 rounded-full bg-soft-pink"></div>
-            </div>
+
+            {/* Generate Bars Dynamically */}
+            {chartData.map((data, idx) => {
+              // Hitung persentase tinggi berdasarkan maxRevenue
+              const heightPercent = Math.max(
+                (data.revenue / maxRevenue) * 100,
+                2,
+              ); // Minimal 2% biar ada wujud baloknya
+
+              return (
+                <div
+                  key={idx}
+                  style={{ height: `${heightPercent}%` }}
+                  className="flex-1 bg-gradient-to-t from-soft-pink/20 to-soft-pink/5 rounded-t-lg relative group/bar hover:from-soft-pink/40 cursor-pointer transition-all duration-500 flex justify-center"
+                >
+                  <div className="absolute -top-1 w-2 h-2 rounded-full bg-soft-pink group-hover/bar:scale-150 transition-transform"></div>
+                  {/* Tooltip Hover */}
+                  <div className="absolute -top-10 bg-charcoal text-white text-[10px] font-bold py-1 px-2 rounded opacity-0 group-hover/bar:opacity-100 transition-opacity whitespace-nowrap border border-white/10 z-20">
+                    {formatRupiah(data.revenue)}
+                  </div>
+                </div>
+              );
+            })}
           </div>
-          <div className="flex justify-between mt-4 px-2 text-[10px] text-white/30 font-bold uppercase tracking-widest">
-            <span>Sen</span>
-            <span>Sel</span>
-            <span>Rab</span>
-            <span>Kam</span>
-            <span>Jum</span>
-            <span>Sab</span>
-            <span>Min</span>
+
+          <div className="flex justify-between mt-4 px-2 text-[10px] text-white/40 font-bold uppercase tracking-widest">
+            {chartData.map((d, i) => (
+              <span key={i} className="text-center flex-1">
+                {d.label}
+              </span>
+            ))}
           </div>
         </div>
 
-        {/* Pie Chart: Demografi Penonton */}
-        <div className="col-span-12 lg:col-span-4 bg-dark-gray border border-white/5 rounded-2xl p-8 flex flex-col">
-          <h3 className="font-headline font-bold text-xl mb-1">
-            Demografi Penonton
-          </h3>
-          <p className="text-white/40 text-sm italic mb-8">
-            Berdasarkan Rentang Usia
-          </p>
-          <div className="flex-1 flex flex-col items-center justify-center space-y-8">
-            <div className="relative w-48 h-48 rounded-full border-16 border-charcoal flex items-center justify-center">
-              {/* Mock Pie Segments */}
-              <div className="absolute inset-0 rounded-full border-16p border-soft-pink border-t-transparent border-l-transparent rotate-[45deg] shadow-[0_0_20px_rgba(255,143,199,0.15)] pointer-events-none"></div>
-              <div className="absolute inset-0 rounded-full border-16 border-light-pink/40 border-b-transparent border-r-transparent -rotate-[15deg] pointer-events-none"></div>
-              <div className="text-center z-10">
-                <span className="block text-3xl font-black text-soft-pink">
-                  64%
-                </span>
-                <span className="text-[10px] uppercase tracking-tighter text-white/40">
-                  Gen Z (18-24)
-                </span>
-              </div>
-            </div>
-            <div className="w-full space-y-3">
-              <div className="flex items-center justify-between text-sm">
-                <div className="flex items-center gap-3">
-                  <div className="w-2 h-2 rounded-full bg-soft-pink"></div>
-                  <span className="text-white/80">18 - 24 Tahun</span>
-                </div>
-                <span className="font-bold">64.2%</span>
-              </div>
-              <div className="flex items-center justify-between text-sm">
-                <div className="flex items-center gap-3">
-                  <div className="w-2 h-2 rounded-full bg-light-pink/40"></div>
-                  <span className="text-white/80">25 - 34 Tahun</span>
-                </div>
-                <span className="font-bold">22.8%</span>
-              </div>
-              <div className="flex items-center justify-between text-sm">
-                <div className="flex items-center gap-3">
-                  <div className="w-2 h-2 rounded-full bg-charcoal border border-white/20"></div>
-                  <span className="text-white/80">Lainnya</span>
-                </div>
-                <span className="font-bold">13.0%</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Bar Chart: Sumber Trafik */}
-        <div className="col-span-12 lg:col-span-5 bg-dark-gray border border-white/5 rounded-2xl p-8">
-          <h3 className="font-headline font-bold text-xl mb-1">
-            Sumber Trafik
-          </h3>
-          <p className="text-white/40 text-sm italic mb-8">
-            Asal usul konversi tiket
-          </p>
-          <div className="space-y-6">
-            <div className="space-y-2">
-              <div className="flex justify-between text-xs font-bold uppercase tracking-wider">
-                <span className="text-white/60">Social Media (IG/TikTok)</span>
-                <span className="text-soft-pink">45%</span>
-              </div>
-              <div className="h-3 bg-charcoal rounded-full overflow-hidden">
-                <div className="h-full bg-soft-pink w-[45%] rounded-full shadow-[0_0_10px_rgba(255,143,199,0.5)]"></div>
-              </div>
-            </div>
-            <div className="space-y-2">
-              <div className="flex justify-between text-xs font-bold uppercase tracking-wider">
-                <span className="text-white/60">Direct Search / Web</span>
-                <span className="text-soft-pink">30%</span>
-              </div>
-              <div className="h-3 bg-charcoal rounded-full overflow-hidden">
-                <div className="h-full bg-soft-pink w-[30%] rounded-full opacity-90"></div>
-              </div>
-            </div>
-            <div className="space-y-2">
-              <div className="flex justify-between text-xs font-bold uppercase tracking-wider">
-                <span className="text-white/60">Email Marketing</span>
-                <span className="text-soft-pink">15%</span>
-              </div>
-              <div className="h-3 bg-charcoal rounded-full overflow-hidden">
-                <div className="h-full bg-soft-pink w-[15%] rounded-full opacity-60"></div>
-              </div>
-            </div>
-            <div className="space-y-2">
-              <div className="flex justify-between text-xs font-bold uppercase tracking-wider">
-                <span className="text-white/60">Referral Offline</span>
-                <span className="text-soft-pink">10%</span>
-              </div>
-              <div className="h-3 bg-charcoal rounded-full overflow-hidden">
-                <div className="h-full bg-soft-pink w-[10%] rounded-full opacity-40"></div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Section: Top Performing Events */}
-        <div className="col-span-12 lg:col-span-7 bg-dark-gray border border-white/5 rounded-2xl p-8">
+        {/* Section: Top Performing Events (DINAMIS DARI DATABASE) */}
+        <div className="col-span-12 bg-dark-gray border border-white/5 rounded-2xl p-8">
           <div className="flex justify-between items-center mb-8">
             <div>
               <h3 className="font-headline font-bold text-xl mb-1">
                 Top Performing Events
               </h3>
               <p className="text-white/40 text-sm italic">
-                Peringkat berdasarkan volume penjualan
+                Peringkat berdasarkan volume penjualan (Sukses)
               </p>
             </div>
-            <button className="text-soft-pink text-xs font-bold hover:underline">
-              View All
-            </button>
           </div>
           <div className="space-y-4">
-            {/* Event Row 1 */}
-            <div className="flex items-center gap-4 p-4 rounded-xl bg-charcoal/50 hover:bg-charcoal border border-transparent hover:border-white/5 transition-colors group">
-              <div className="w-16 h-16 rounded-lg overflow-hidden shrink-0">
-                <img
-                  className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500 opacity-80"
-                  alt="Neon Night"
-                  src="https://images.unsplash.com/photo-1540039155732-684735035727?auto=format&fit=crop&q=80&w=200"
-                />
+            {topEvents.length === 0 ? (
+              <div className="text-center py-8 text-white/40 italic">
+                Belum ada data penjualan.
               </div>
-              <div className="flex-1">
-                <h4 className="font-bold text-white group-hover:text-soft-pink transition-colors">
-                  Neon Night: Seoul Pulse
-                </h4>
-                <p className="text-xs text-white/40">
-                  Stadium Gelora Bung Karno • 24 Oct
-                </p>
-              </div>
-              <div className="text-right">
-                <div className="font-black text-soft-pink tracking-tight">
-                  Rp 1.2B
-                </div>
-                <div className="text-[10px] uppercase text-white/40 font-bold">
-                  12,403 Tiket
-                </div>
-              </div>
-              <div className="pl-4">
-                <span
-                  className="material-symbols-outlined text-green-400"
-                  style={{ fontVariationSettings: "'FILL' 1" }}
-                >
-                  trending_up
-                </span>
-              </div>
-            </div>
+            ) : (
+              topEvents.map((event, index) => {
+                const imgUrl = event.image_url
+                  ? event.image_url.startsWith("http")
+                    ? event.image_url
+                    : `http://localhost:8000${event.image_url}`
+                  : "https://images.unsplash.com/photo-1540039155732-684735035727?auto=format&fit=crop&q=80&w=200";
 
-            {/* Event Row 2 */}
-            <div className="flex items-center gap-4 p-4 rounded-xl bg-charcoal/50 hover:bg-charcoal border border-transparent hover:border-white/5 transition-colors group">
-              <div className="w-16 h-16 rounded-lg overflow-hidden shrink-0">
-                <img
-                  className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500 opacity-80"
-                  alt="Couture Gala"
-                  src="https://images.unsplash.com/photo-1509283038676-4318788a101b?auto=format&fit=crop&q=80&w=200"
-                />
-              </div>
-              <div className="flex-1">
-                <h4 className="font-bold text-white group-hover:text-soft-pink transition-colors">
-                  Midnight Couture Gala
-                </h4>
-                <p className="text-xs text-white/40">
-                  The Ritz-Carlton • 12 Nov
-                </p>
-              </div>
-              <div className="text-right">
-                <div className="font-black text-white tracking-tight">
-                  Rp 840M
-                </div>
-                <div className="text-[10px] uppercase text-white/40 font-bold">
-                  2,100 Tiket
-                </div>
-              </div>
-              <div className="pl-4">
-                <span
-                  className="material-symbols-outlined text-green-400"
-                  style={{ fontVariationSettings: "'FILL' 1" }}
-                >
-                  trending_up
-                </span>
-              </div>
-            </div>
-
-            {/* Event Row 3 */}
-            <div className="flex items-center gap-4 p-4 rounded-xl bg-charcoal/50 hover:bg-charcoal border border-transparent hover:border-white/5 transition-colors group">
-              <div className="w-16 h-16 rounded-lg overflow-hidden shrink-0 bg-charcoal border border-white/5">
-                <img
-                  className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500 opacity-50 grayscale"
-                  alt="Vinyl Record"
-                  src="https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?auto=format&fit=crop&q=80&w=200"
-                />
-              </div>
-              <div className="flex-1">
-                <h4 className="font-bold text-white group-hover:text-soft-pink transition-colors">
-                  Vibe Check: Indie Underground
-                </h4>
-                <p className="text-xs text-white/40">
-                  Live House Jakarta • 05 Dec
-                </p>
-              </div>
-              <div className="text-right">
-                <div className="font-black text-white tracking-tight">
-                  Rp 320M
-                </div>
-                <div className="text-[10px] uppercase text-white/40 font-bold">
-                  5,800 Tiket
-                </div>
-              </div>
-              <div className="pl-4">
-                <span className="material-symbols-outlined text-white/20">
-                  horizontal_rule
-                </span>
-              </div>
-            </div>
+                return (
+                  <div
+                    key={event.id}
+                    className="flex items-center gap-4 p-4 rounded-xl bg-charcoal/50 hover:bg-charcoal border border-transparent hover:border-white/5 transition-colors group"
+                  >
+                    <div className="w-16 h-16 rounded-lg overflow-hidden shrink-0 relative flex items-center justify-center font-bold text-white bg-charcoal">
+                      <img
+                        className="absolute inset-0 w-full h-full object-cover group-hover:scale-110 transition-transform duration-500 opacity-60"
+                        alt={event.title}
+                        src={imgUrl}
+                      />
+                      <span className="relative z-10 text-xl drop-shadow-md">
+                        #{index + 1}
+                      </span>
+                    </div>
+                    <div className="flex-1">
+                      <h4 className="font-bold text-white group-hover:text-soft-pink transition-colors truncate max-w-[200px] sm:max-w-md">
+                        {event.title}
+                      </h4>
+                      <p className="text-xs text-white/40">
+                        {event.location} • {formatDate(event.date)}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <div className="font-black text-soft-pink tracking-tight">
+                        {formatRupiah(event.revenue)}
+                      </div>
+                      <div className="text-[10px] uppercase text-white/40 font-bold">
+                        {event.tickets} Tiket
+                      </div>
+                    </div>
+                    <div className="pl-4 hidden sm:block">
+                      <span
+                        className="material-symbols-outlined text-green-400"
+                        style={{ fontVariationSettings: "'FILL' 1" }}
+                      >
+                        trending_up
+                      </span>
+                    </div>
+                  </div>
+                );
+              })
+            )}
           </div>
         </div>
       </section>

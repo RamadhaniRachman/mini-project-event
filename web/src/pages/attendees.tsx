@@ -34,13 +34,14 @@ export default function Attendees() {
     // Fetch data peserta dari Backend
     const fetchAttendees = async () => {
       try {
-        const API_URL = import.meta.env.VITE_PROJECT_API;
-
-        const response = await fetch(`${API_URL}/api/events/attendees`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
+        const response = await fetch(
+          "http://localhost:8000/api/events/attendees",
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
           },
-        });
+        );
         if (response.ok) {
           const result = await response.json();
           setAttendees(result.data || []);
