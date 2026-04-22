@@ -17,15 +17,23 @@ export default function EventDetailCustomer() {
   useEffect(() => {
     // 1. Cek User Session
     const userString = localStorage.getItem("user");
-    if (userString) {
+    const token = localStorage.getItem("token");
+
+    if (userString && token) {
       const userData = JSON.parse(userString);
       const userRole = String(userData.role || "").toLowerCase();
 
+      // Kembalikan Organizer ke habitatnya
       if (userRole === "organizer") {
-        navigate("/dashboard");
+        window.location.href = "/dashboard";
         return;
       }
       setUser(userData);
+    } else {
+      // Jika nyangkut (user ada tapi token hilang), bersihkan sekalian!
+      localStorage.removeItem("user");
+      localStorage.removeItem("token");
+      setUser(null);
     }
 
     // 2. Fetch Detail Event Publik
@@ -104,36 +112,8 @@ export default function EventDetailCustomer() {
           >
             NEON STAGE
           </a>
-          <nav className="hidden md:flex items-center gap-8 font-headline tracking-tight font-bold">
-            <a
-              className="text-white/70 hover:text-soft-pink transition-all duration-300"
-              href="/"
-            >
-              Discover
-            </a>
-            <a
-              className="text-white/70 hover:text-soft-pink transition-all duration-300"
-              href="#"
-            >
-              Tours
-            </a>
-            <a
-              className="text-white/70 hover:text-soft-pink transition-all duration-300"
-              href="#"
-            >
-              Venues
-            </a>
-          </nav>
-          <div className="flex items-center gap-6">
-            <div className="flex items-center gap-4 text-white/70 hidden sm:flex">
-              <span className="material-symbols-outlined cursor-pointer hover:text-soft-pink transition-colors">
-                favorite
-              </span>
-              <span className="material-symbols-outlined cursor-pointer hover:text-soft-pink transition-colors">
-                shopping_bag
-              </span>
-            </div>
 
+          <div className="flex items-center gap-6">
             {user ? (
               <div className="group relative">
                 <div className="w-10 h-10 rounded-full bg-dark-gray border border-soft-pink/30 flex items-center justify-center cursor-pointer hover:border-soft-pink transition-colors overflow-hidden">
@@ -383,14 +363,6 @@ export default function EventDetailCustomer() {
                 >
                   Beli Tiket
                 </button>
-                <div className="mt-6 flex justify-center gap-4">
-                  <button className="p-3 bg-charcoal border border-white/5 hover:border-soft-pink/50 rounded-lg text-white/60 hover:text-soft-pink transition-colors">
-                    <span className="material-symbols-outlined">share</span>
-                  </button>
-                  <button className="p-3 bg-charcoal border border-white/5 hover:border-soft-pink/50 rounded-lg text-white/60 hover:text-soft-pink transition-colors">
-                    <span className="material-symbols-outlined">favorite</span>
-                  </button>
-                </div>
               </div>
             </div>
           </aside>

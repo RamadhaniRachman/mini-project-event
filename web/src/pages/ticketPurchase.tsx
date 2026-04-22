@@ -14,17 +14,23 @@ export default function TicketPurchase() {
   const [isLoading, setIsLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
 
-  // State UI & Form
+  // State UI & Form Promo Organizer
   const [_activeTab, _setActiveTab] = useState("tiket");
   const [promoCode, setPromoCode] = useState("");
   const [isPromoApplied, setIsPromoApplied] = useState(false);
   const [promoMessage, setPromoMessage] = useState("");
-
-  // State untuk menyimpan detail diskon dari Database
   const [discountInfo, setDiscountInfo] = useState<{
     value: number;
     type: string;
   } | null>(null);
+
+  // (Idealnya data ini di-fetch dari API /api/users/profile milik pembeli)
+  // 👇 STATE ASLI UNTUK KUPON REFERRAL & POIN 👇
+  const [hasCoupon, setHasCoupon] = useState(false);
+  const [availablePoints, setAvailablePoints] = useState(0);
+
+  const [isCouponApplied, setIsCouponApplied] = useState(false);
+  const [pointsToRedeem, setPointsToRedeem] = useState<number | "">("");
 
   // State Tiket Dinamis: { ticketId: quantity }
   const [selectedTickets, setSelectedTickets] = useState<
@@ -50,8 +56,6 @@ export default function TicketPurchase() {
         if (response.ok) {
           const data = await response.json();
           setEventData(data);
-
-          // Inisialisasi state tiket dengan qty 0
           const initialSelection: Record<number, number> = {};
           data.tickets?.forEach((t: any) => {
             initialSelection[t.id] = 0;
@@ -61,11 +65,35 @@ export default function TicketPurchase() {
       } catch (error) {
         console.error(error);
       } finally {
-        setIsLoading(false);
+        setIsLoading(false); // Mematikan loading screen saat data event selesai ditarik
       }
     };
 
-    if (id) fetchEvent();
+    // FUNGSI BARU: Mengambil data poin & kupon dari backend
+    const fetchRewards = async () => {
+      try {
+        const token = localStorage.getItem("token");
+        const response = await fetch(
+          "http://localhost:8000/api/transactions/rewards",
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          },
+        );
+        if (response.ok) {
+          const data = await response.json();
+          setAvailablePoints(data.points);
+          setHasCoupon(data.hasCoupon);
+        }
+      } catch (error) {
+        console.error("Gagal mengambil data reward:", error);
+      }
+    };
+
+    //  Panggil KEDUA fungsinya di sini jika ID event tersedia
+    if (id) {
+      fetchEvent();
+      fetchRewards();
+    }
   }, [id, navigate]);
 
   const handleTicketChange = (
@@ -76,16 +104,13 @@ export default function TicketPurchase() {
     setSelectedTickets((prev) => {
       const currentQty = prev[ticketId] || 0;
       const newQty = currentQty + delta;
-
       if (newQty < 0 || newQty > 4 || newQty > maxAvailable) return prev;
       return { ...prev, [ticketId]: newQty };
     });
   };
 
-  // === VALIDASI PROMO KE DATABASE ===
   const handleApplyPromo = async () => {
     if (!promoCode.trim()) return;
-
     setPromoMessage("Memeriksa kode promo...");
     try {
       const token = localStorage.getItem("token");
@@ -100,14 +125,12 @@ export default function TicketPurchase() {
           body: JSON.stringify({ promoCode, eventId: id }),
         },
       );
-
       const result = await response.json();
-
       if (response.ok) {
         setIsPromoApplied(true);
         setDiscountInfo({
           value: result.data.discount_value,
-          type: result.data.discount_type, // "NOMINAL" atau "PERCENTAGE"
+          type: result.data.discount_type,
         });
         setPromoMessage("Kode promo berhasil digunakan!");
       } else {
@@ -120,7 +143,6 @@ export default function TicketPurchase() {
     }
   };
 
-  // Hapus promo jika dikosongkan
   useEffect(() => {
     if (promoCode === "") {
       setIsPromoApplied(false);
@@ -129,7 +151,7 @@ export default function TicketPurchase() {
     }
   }, [promoCode]);
 
-  // === KALKULASI HARGA REAL-TIME ===
+  // === KALKULASI HARGA REAL-TIME (DISKON BERLAPIS) ===
   let subTotal = 0;
   if (eventData?.tickets) {
     eventData.tickets.forEach((t: any) => {
@@ -137,32 +159,47 @@ export default function TicketPurchase() {
     });
   }
 
-  const serviceFee = subTotal > 0 ? 25000 : 0;
-  const tax = subTotal * 0.11; // Pajak 11% dari subtotal awal
-
-  // Hitung Potongan Diskon
-  let discountNominal = 0;
+  // 1. Diskon Promo Organizer
+  let promoDiscountNominal = 0;
   if (isPromoApplied && discountInfo && subTotal > 0) {
     if (discountInfo.type === "PERCENTAGE") {
-      discountNominal = subTotal * (discountInfo.value / 100);
+      promoDiscountNominal = subTotal * (discountInfo.value / 100);
     } else {
-      discountNominal = discountInfo.value; // Potongan Flat (Nominal)
+      promoDiscountNominal = discountInfo.value;
     }
   }
+  if (promoDiscountNominal > subTotal) promoDiscountNominal = subTotal;
 
-  // Mencegah diskon lebih besar dari total belanja
-  if (discountNominal > subTotal) discountNominal = subTotal;
+  let priceAfterPromo = subTotal - promoDiscountNominal;
+
+  // 2. Diskon Kupon Referral (10%)
+  let couponDiscountNominal = 0;
+  if (isCouponApplied && priceAfterPromo > 0) {
+    couponDiscountNominal = priceAfterPromo * 0.1; // Potong 10%
+  }
+  let priceAfterCoupon = priceAfterPromo - couponDiscountNominal;
+
+  // 3. Pajak & Layanan (Diasumsikan dihitung dari harga setelah promo/kupon)
+  const serviceFee = subTotal > 0 ? 25000 : 0;
+  const tax = priceAfterCoupon * 0.11;
+  let totalBeforePoints = priceAfterCoupon + serviceFee + tax;
+
+  // 4. Potongan Poin (1 Poin = Rp 1)
+  let pointsDiscountNominal = 0;
+  const redeemVal = Number(pointsToRedeem) || 0;
+  if (redeemVal > 0) {
+    // Poin tidak bisa memotong lebih dari total harga
+    pointsDiscountNominal = Math.min(totalBeforePoints, redeemVal);
+  }
 
   // Total Akhir
-  const total =
-    subTotal > 0 ? subTotal + serviceFee + tax - discountNominal : 0;
+  const total = totalBeforePoints - pointsDiscountNominal;
 
   // === PROSES CHECKOUT ===
   const handleCheckout = async () => {
     setIsProcessing(true);
     try {
       const token = localStorage.getItem("token");
-
       const ticketsToBuy = Object.entries(selectedTickets)
         .filter(([_, qty]) => qty > 0)
         .map(([ticketId, qty]) => ({
@@ -182,12 +219,13 @@ export default function TicketPurchase() {
             eventId: id,
             selectedTickets: ticketsToBuy,
             promoCode: isPromoApplied ? promoCode : null,
+            useCoupon: isCouponApplied, // 👈 Kirim status kupon
+            redeemPoints: Number(pointsToRedeem) || 0, // 👈 Kirim jumlah poin
           }),
         },
       );
 
       const result = await response.json();
-
       if (response.ok) {
         alert("🎉 Pembelian Berhasil! Cek email Anda untuk E-Ticket.");
         navigate("/");
@@ -211,7 +249,7 @@ export default function TicketPurchase() {
 
   return (
     <div className="dark bg-charcoal font-body text-white min-h-screen selection:bg-soft-pink selection:text-charcoal pb-24 md:pb-0">
-      {/* HEADER TINGGAL COPY DARI KODE SEBELUMNYA */}
+      {/* HEADER */}
       <header className="fixed top-0 w-full z-50 bg-charcoal/80 backdrop-blur-xl shadow-[0px_10px_30px_rgba(0,0,0,0.3)] border-b border-white/5">
         <div className="flex justify-between items-center px-6 py-4 w-full max-w-screen-2xl mx-auto">
           <button
@@ -261,12 +299,10 @@ export default function TicketPurchase() {
             <h2 className="text-3xl font-black font-headline tracking-tight uppercase text-white">
               Pilih Kategori Tiket
             </h2>
-
             <div className="space-y-4">
               {eventData.tickets?.map((ticket: any) => {
                 const isSoldOut = ticket.available_seats <= 0;
                 const qty = selectedTickets[ticket.id] || 0;
-
                 return (
                   <div
                     key={ticket.id}
@@ -284,7 +320,6 @@ export default function TicketPurchase() {
                           Rp {ticket.price.toLocaleString("id-ID")}
                         </p>
                       </div>
-
                       {!isSoldOut ? (
                         <div className="flex items-center bg-charcoal rounded-lg p-1 border border-white/10 self-start sm:self-auto">
                           <button
@@ -334,13 +369,13 @@ export default function TicketPurchase() {
           {/* Right Column: Order Summary */}
           <div className="lg:col-span-5">
             <div className="sticky top-28 space-y-6">
-              {/* Voucher Input */}
+              {/* Voucher Event Input */}
               <div className="bg-dark-gray rounded-xl p-6 border border-white/5 shadow-xl">
                 <h4 className="text-sm font-bold tracking-widest uppercase mb-4 flex items-center gap-2 text-white">
                   <span className="material-symbols-outlined text-soft-pink text-lg">
                     confirmation_number
                   </span>{" "}
-                  Kode Promo
+                  Kode Promo Event
                 </h4>
                 <div className="flex gap-2">
                   <input
@@ -364,6 +399,71 @@ export default function TicketPurchase() {
                     {promoMessage}
                   </p>
                 )}
+              </div>
+
+              {/* 👇 REWARD & POIN INPUT 👇 */}
+              <div className="bg-dark-gray rounded-xl p-6 border border-white/5 shadow-xl">
+                <h4 className="text-sm font-bold tracking-widest uppercase mb-4 flex items-center gap-2 text-white">
+                  <span className="material-symbols-outlined text-yellow-400 text-lg">
+                    stars
+                  </span>{" "}
+                  Reward & Poin
+                </h4>
+
+                {/* Toggle Kupon Referral */}
+                {hasCoupon && (
+                  <div className="mb-5 flex items-center justify-between p-3 bg-charcoal border border-white/10 rounded-lg">
+                    <div>
+                      <p className="text-sm font-bold text-white">
+                        Kupon Referral 10%
+                      </p>
+                      <p className="text-[10px] text-white/40">
+                        Gunakan kupon dari pendaftaran
+                      </p>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        className="sr-only peer"
+                        checked={isCouponApplied}
+                        onChange={(e) => setIsCouponApplied(e.target.checked)}
+                      />
+                      <div className="w-11 h-6 bg-dark-gray peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white/60 after:border-white/60 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-soft-pink peer-checked:after:bg-charcoal"></div>
+                    </label>
+                  </div>
+                )}
+
+                {/* Input Tukar Poin */}
+                <div>
+                  <div className="flex justify-between items-end mb-2">
+                    <p className="text-sm font-bold text-white">Gunakan Poin</p>
+                    <p className="text-[10px] text-white/40 font-bold uppercase tracking-widest">
+                      Saldo: {availablePoints}
+                    </p>
+                  </div>
+                  <div className="flex gap-2">
+                    <input
+                      className="flex-grow bg-charcoal border border-white/10 rounded-lg py-2 px-4 text-white focus:border-soft-pink outline-none text-sm"
+                      placeholder="Jumlah poin..."
+                      type="number"
+                      max={availablePoints}
+                      value={pointsToRedeem}
+                      onChange={(e) => {
+                        let val = parseInt(e.target.value);
+                        if (isNaN(val)) setPointsToRedeem("");
+                        else if (val > availablePoints)
+                          setPointsToRedeem(availablePoints);
+                        else setPointsToRedeem(val);
+                      }}
+                    />
+                    <button
+                      onClick={() => setPointsToRedeem(availablePoints)}
+                      className="text-xs bg-white/5 border border-white/10 hover:border-soft-pink text-white px-4 rounded-lg transition-all font-bold"
+                    >
+                      MAX
+                    </button>
+                  </div>
+                </div>
               </div>
 
               {/* Order Summary */}
@@ -412,12 +512,32 @@ export default function TicketPurchase() {
                         </span>
                       </div>
 
-                      {/* 👇 BARIS DISKON DINAMIS MUNCUL DI SINI 👇 */}
-                      {isPromoApplied && discountNominal > 0 && (
-                        <div className="flex justify-between items-center text-xs text-green-400 font-bold bg-green-400/10 p-2 rounded-lg border border-green-400/20">
-                          <span>Diskon ({promoCode})</span>
+                      {/* Baris Diskon Promo */}
+                      {isPromoApplied && promoDiscountNominal > 0 && (
+                        <div className="flex justify-between items-center text-xs text-green-400 font-bold">
+                          <span>Promo ({promoCode})</span>
                           <span>
-                            - Rp {discountNominal.toLocaleString("id-ID")}
+                            - Rp {promoDiscountNominal.toLocaleString("id-ID")}
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Baris Diskon Kupon */}
+                      {isCouponApplied && couponDiscountNominal > 0 && (
+                        <div className="flex justify-between items-center text-xs text-green-400 font-bold">
+                          <span>Kupon Referral (10%)</span>
+                          <span>
+                            - Rp {couponDiscountNominal.toLocaleString("id-ID")}
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Baris Diskon Poin */}
+                      {pointsDiscountNominal > 0 && (
+                        <div className="flex justify-between items-center text-xs text-yellow-400 font-bold">
+                          <span>Tukar Poin</span>
+                          <span>
+                            - Rp {pointsDiscountNominal.toLocaleString("id-ID")}
                           </span>
                         </div>
                       )}

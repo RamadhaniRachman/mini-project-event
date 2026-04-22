@@ -5,6 +5,7 @@ import {
   validatePromo,
   verifyTransaction,
   getTransactionById,
+  getUserRewards,
 } from "../controllers/transactionController.js";
 import { verifyToken } from "../middleware/authMiddleware.js";
 
@@ -12,7 +13,7 @@ const router = express.Router();
 
 // Rute untuk Customer Beli Tiket
 router.post("/checkout", verifyToken, checkout);
-
+router.get("/rewards", verifyToken, getUserRewards);
 // 👇 Rute untuk Organizer Melihat Daftar Transaksi
 router.get("/list", verifyToken, getOrganizerTransactions);
 router.post("/validate-promo", verifyToken, validatePromo);

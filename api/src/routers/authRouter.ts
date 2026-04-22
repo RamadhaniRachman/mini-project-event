@@ -3,7 +3,13 @@ import { register, login } from "../controllers/authController.js";
 import { verifyToken, CustomRequest } from "../middleware/authMiddleware.js";
 import { validate } from "../middleware/validateMiddleware.js";
 import { loginSchema, registerSchema } from "../schemas/authSchema.js";
-
+import {
+  updateProfile,
+  changePassword,
+  forgotPassword,
+  resetPassword,
+} from "../controllers/userController.js";
+import { upload } from "../middleware/uploadMiddleware.js";
 const router = express.Router();
 
 // --- PUBLIC ROUTES (Tidak butuh token) ---
@@ -24,5 +30,9 @@ router.get(
     });
   },
 );
+router.put("/profile", verifyToken, upload.single("avatar"), updateProfile);
+router.put("/change-password", verifyToken, changePassword);
+router.post("/forgot-password", forgotPassword);
+router.post("/reset-password", resetPassword);
 
 export default router;

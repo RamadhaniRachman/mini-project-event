@@ -313,17 +313,45 @@ export const getAttendees = async (
   }
 };
 
-// Fungsi untuk MENGAMBIL SEMUA EVENT untuk Publik (Tanpa Token)
+// Fungsi untuk MENGAMBIL SEMUA EVENT untuk Publik (Tanpa Token) + Fitur Pencarian & Filter Lokasi
+// Fungsi untuk MENGAMBIL SEMUA EVENT untuk Publik + Filter Lokasi
 export const getPublicEvents = async (
   req: Request,
   res: Response,
 ): Promise<any> => {
   try {
+    // 1. Tangkap parameter dari URL (query string)
+    const { search, location } = req.query;
+
+    // 🌟 PASANG CCTV: Lihat di Terminal Backend Anda saat memilih lokasi di web!
+    console.log("=== REQUEST GET PUBLIC EVENTS ===");
+    console.log("Lokasi yang diminta:", location);
+
+    // 2. Siapkan keranjang kosong untuk kondisi pencarian
+    const whereClause: any = {};
+
+    // 3. Jika ada kata kunci pencarian (berdasarkan judul)
+    if (search && typeof search === "string" && search.trim() !== "") {
+      whereClause.title = { contains: search, mode: "insensitive" };
+    }
+
+    // 4. Jika ada filter lokasi
+    if (location && typeof location === "string" && location !== "Semua") {
+      // mode: 'insensitive' membuat "Bandung", "BANDUNG", atau "bandung" terbaca sama
+      whereClause.location = { contains: location, mode: "insensitive" };
+    }
+
+    // 5. Cari di database
     const events = await prisma.events.findMany({
-      include: { tickets: true }, // Bawa data tiket agar kita tahu harga termurahnya
-      orderBy: { created_at: "desc" }, // Tampilkan dari yang paling baru
-      take: 10, // Batasi 10 event terbaru untuk halaman home
+      where: whereClause,
+      include: { tickets: true },
+      orderBy: { created_at: "desc" },
+      take: 10,
     });
+
+    console.log(
+      `Berhasil menemukan ${events.length} event untuk lokasi: ${location || "Semua"}`,
+    );
 
     return res.status(200).json({ data: events });
   } catch (error) {

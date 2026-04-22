@@ -9,8 +9,10 @@ export const checkout = async (
 ): Promise<any> => {
   try {
     const customerId = req.user.id;
-    const { eventId, selectedTickets, promoCode } = req.body;
-    // selectedTickets bentuknya: [ { ticketId: 1, quantity: 2 }, { ticketId: 2, quantity: 1 } ]
+
+    // 👇 Tambahkan tangkapan untuk useCoupon dan redeemPoints dari Frontend
+    const { eventId, selectedTickets, promoCode, useCoupon, redeemPoints } =
+      req.body;
 
     if (!selectedTickets || selectedTickets.length === 0) {
       return res.status(400).json({ message: "Tidak ada tiket yang dipilih" });
@@ -18,9 +20,8 @@ export const checkout = async (
 
     const result = await prisma.$transaction(async (tx) => {
       let promo = null;
-      let totalDiscount = 0;
 
-      // 1. Cek Kode Promo (Jika ada)
+      // 1. Cek Kode Promo dari Organizer (Jika ada)
       if (promoCode) {
         promo = await tx.promotions.findFirst({
           where: {
@@ -31,47 +32,96 @@ export const checkout = async (
             quota: { gt: 0 },
           },
         });
+        if (!promo) throw new Error("Kode promo tidak valid atau kuota habis.");
+      }
 
-        if (!promo)
+      // 2. Cek Kupon Referral 10% (Jika User mencentang "Gunakan Kupon")
+      let appliedCoupon = null;
+      if (useCoupon) {
+        appliedCoupon = await tx.coupons.findFirst({
+          where: {
+            user_id: customerId,
+            is_used: false,
+            expired_at: { gte: new Date() }, // Pastikan belum kadaluwarsa
+          },
+        });
+        if (!appliedCoupon)
           throw new Error(
-            "Kode promo tidak valid, kadaluwarsa, atau kuota habis.",
+            "Kupon referral tidak tersedia atau sudah kadaluwarsa.",
           );
+      }
+
+      // 3. Cek Saldo Poin Referral (Jika User mengisi jumlah poin yang ingin dipakai)
+      let pointsToUse = Number(redeemPoints) || 0;
+      if (pointsToUse > 0) {
+        // Ambil semua poin user yang masih aktif dan ada saldonya (Urutkan dari yang paling cepat expired / FIFO)
+        const activePoints = await tx.points.findMany({
+          where: {
+            user_id: customerId,
+            remaining_balance: { gt: 0 },
+            expired_at: { gte: new Date() },
+          },
+          orderBy: { expired_at: "asc" },
+        });
+
+        const totalBalance = activePoints.reduce(
+          (sum, p) => sum + p.remaining_balance,
+          0,
+        );
+        if (totalBalance < pointsToUse) {
+          throw new Error(
+            `Saldo poin tidak mencukupi. Saldo maksimal Anda: ${totalBalance}`,
+          );
+        }
+
+        // Potong Saldo Poin di database secara berurutan (Sistem FIFO)
+        let remainingToDeduct = pointsToUse;
+        for (const pointRow of activePoints) {
+          if (remainingToDeduct <= 0) break;
+
+          const deductAmount = Math.min(
+            pointRow.remaining_balance,
+            remainingToDeduct,
+          );
+          await tx.points.update({
+            where: { id: pointRow.id },
+            data: {
+              remaining_balance: pointRow.remaining_balance - deductAmount,
+            },
+          });
+          remainingToDeduct -= deductAmount;
+        }
       }
 
       const transactionsToCreate = [];
 
-      // 2. Loop setiap tiket yang dibeli untuk cek stok & hitung harga
+      // 4. Loop setiap tiket yang dibeli untuk cek stok & hitung harga akhir
       for (const item of selectedTickets) {
         if (item.quantity <= 0) continue;
 
-        // Kunci baris tiket ini agar tidak dibeli orang lain secara bersamaan (Concurrency)
         const ticketDb = await tx.tickets.findUnique({
           where: { id: item.ticketId },
         });
         if (!ticketDb) throw new Error(`Tiket tidak ditemukan`);
         if (ticketDb.available_seats < item.quantity) {
-          throw new Error(
-            `Kapasitas ${ticketDb.name} tidak mencukupi. Sisa: ${ticketDb.available_seats}`,
-          );
+          throw new Error(`Kapasitas ${ticketDb.name} tidak mencukupi.`);
         }
 
-        // Potong kursi
+        // Potong kursi tiket sementara
         await tx.tickets.update({
           where: { id: item.ticketId },
           data: { available_seats: ticketDb.available_seats - item.quantity },
         });
 
-        // Hitung harga
+        // Hitung harga dasar
         const originalPrice = ticketDb.price * item.quantity;
         let finalPrice = originalPrice;
 
-        // Jika ada promo, hitung diskon (Simulasi: Diskon memotong harga tiket ini proporsional)
+        // A. Potong pakai Promo Organizer (Jika ada)
         if (promo) {
           if (promo.discount_type === "PERCENTAGE") {
-            finalPrice =
-              originalPrice - originalPrice * (promo.discount_value / 100);
+            finalPrice -= originalPrice * (promo.discount_value / 100);
           } else {
-            // Jika nominal fix (misal potongan 50rb), potong per tiket
             finalPrice = Math.max(
               0,
               originalPrice - promo.discount_value * item.quantity,
@@ -79,23 +129,37 @@ export const checkout = async (
           }
         }
 
-        // Siapkan data untuk diinsert ke tabel transactions
+        // B. Potong pakai Kupon Referral (Misal 10%)
+        if (appliedCoupon) {
+          finalPrice -= finalPrice * (appliedCoupon.discount_percentage / 100);
+        }
+
+        // C. Potong pakai Poin (1 Poin = Rp 1)
+        let pointUsedForThisTicket = 0;
+        if (pointsToUse > 0) {
+          const deduction = Math.min(finalPrice, pointsToUse); // Jangan sampai harga jadi minus
+          finalPrice -= deduction;
+          pointsToUse -= deduction;
+          pointUsedForThisTicket = deduction;
+        }
+
         transactionsToCreate.push({
           customer_id: customerId,
           event_id: Number(eventId),
           ticket_type_id: item.ticketId,
           quantity: item.quantity,
           original_price: originalPrice,
-          final_price: finalPrice,
+          final_price: Math.round(finalPrice), // Bulatkan agar tidak ada desimal
           promo_id: promo ? promo.id : null,
+          point_redeemed: pointUsedForThisTicket, // 👈 Simpan total poin yang dipotong di transaksi ini
           status: "pending",
         });
       }
 
-      // 3. Insert semua transaksi
+      // 5. Insert semua transaksi
       await tx.transactions.createMany({ data: transactionsToCreate });
 
-      // 4. Kurangi kuota promo jika digunakan
+      // 6. Update Status Kuota & Kupon
       if (promo) {
         await tx.promotions.update({
           where: { id: promo.id },
@@ -103,10 +167,19 @@ export const checkout = async (
         });
       }
 
+      if (appliedCoupon) {
+        await tx.coupons.update({
+          where: { id: appliedCoupon.id },
+          data: { is_used: true }, // Tandai kupon hangus karena sudah dipakai
+        });
+      }
+
       return true; // Transaksi sukses
     });
 
-    return res.status(200).json({ message: "Pembelian tiket berhasil!" });
+    return res
+      .status(200)
+      .json({ message: "Pembelian tiket berhasil menunggu verifikasi!" });
   } catch (error: any) {
     console.error("Checkout error:", error);
     return res
@@ -323,5 +396,43 @@ export const verifyTransaction = async (
   } catch (error) {
     console.error("Verify error:", error);
     return res.status(500).json({ message: "Gagal memverifikasi transaksi" });
+  }
+};
+
+// Fungsi untuk mengecek Poin dan Kupon milik Customer
+export const getUserRewards = async (
+  req: CustomRequest,
+  res: Response,
+): Promise<any> => {
+  try {
+    const customerId = req.user.id;
+
+    // 1. Hitung total poin yang masih aktif (belum expired & saldo > 0)
+    const activePoints = await prisma.points.aggregate({
+      where: {
+        user_id: customerId,
+        remaining_balance: { gt: 0 },
+        expired_at: { gte: new Date() },
+      },
+      _sum: { remaining_balance: true },
+    });
+    const totalPoints = activePoints._sum.remaining_balance || 0;
+
+    // 2. Cek apakah ada kupon referral 10% yang belum dipakai
+    const activeCoupon = await prisma.coupons.findFirst({
+      where: {
+        user_id: customerId,
+        is_used: false,
+        expired_at: { gte: new Date() },
+      },
+    });
+
+    return res.status(200).json({
+      points: totalPoints,
+      hasCoupon: !!activeCoupon, // Mengubah object menjadi true/false
+    });
+  } catch (error) {
+    console.error("Error get rewards:", error);
+    return res.status(500).json({ message: "Gagal mengambil data reward" });
   }
 };

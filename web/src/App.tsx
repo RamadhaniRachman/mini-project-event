@@ -15,6 +15,10 @@ import EventDetailCustomer from "./pages/eventDetailCustomer";
 import TicketPurchase from "./pages/ticketPurchase";
 import Promotions from "./pages/promotions";
 import TransactionVerification from "./components/transactionVerification";
+import Profile from "./pages/profile";
+import Security from "./pages/security";
+import ForgotPassword from "./pages/forgotPassword";
+import ResetPassword from "./pages/resetPassword";
 export default function App() {
   return (
     <>
@@ -26,6 +30,10 @@ export default function App() {
               <Route path="/" element={<Home />} />
               <Route path="/register" element={<Register />} />
               <Route path="/login" element={<Login />} />
+              <Route path="/forgot-password" element={<ForgotPassword />} />
+              <Route path="/reset-password" element={<ResetPassword />} />
+              <Route path="/profile" element={<Profile />} />
+              <Route path="/security" element={<Security />} />
               <Route path="/events/:id" element={<EventDetailCustomer />} />
               <Route path="/checkout/:id" element={<TicketPurchase />} />
               <Route path="/promotions" element={<Promotions />} />

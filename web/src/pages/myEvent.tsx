@@ -96,34 +96,6 @@ export default function MyEvents() {
         </div>
       </section>
 
-      {/* --- Filters & Search Toolbar --- */}
-      <section className="mb-10 flex flex-wrap items-center justify-between gap-6 bg-dark-gray p-4 rounded-2xl border border-white/5">
-        <div className="flex items-center gap-2 overflow-x-auto hide-scrollbar w-full md:w-auto">
-          {["Semua", "Aktif", "Selesai", "Draft"].map((filter) => (
-            <button
-              key={filter}
-              onClick={() => setActiveFilter(filter)}
-              className={`px-6 py-2 rounded-lg font-bold text-sm transition-all whitespace-nowrap ${
-                activeFilter === filter
-                  ? "bg-soft-pink text-charcoal"
-                  : "hover:bg-charcoal text-white/60 hover:text-white"
-              }`}
-            >
-              {filter}
-            </button>
-          ))}
-        </div>
-        <div className="flex items-center gap-4 ml-auto">
-          <div className="h-8 w-[1px] bg-white/10 hidden md:block"></div>
-          <button className="flex items-center gap-2 text-white/60 hover:text-soft-pink transition-colors text-sm font-medium">
-            <span className="material-symbols-outlined text-xl">
-              filter_list
-            </span>
-            <span>Urutkan: Terbaru</span>
-          </button>
-        </div>
-      </section>
-
       {/* --- Events Grid (Dinamis dari Database) --- */}
       {isLoading ? (
         <div className="py-20 text-center text-soft-pink font-bold animate-pulse">

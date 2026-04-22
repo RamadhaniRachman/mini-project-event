@@ -200,25 +200,24 @@ export default function Dashboard() {
             </div>
           </div>
           <div className="flex items-center gap-6">
-            <button className="relative text-white/60 hover:text-soft-pink transition-colors">
-              <span className="material-symbols-outlined">notifications</span>
-              <span className="absolute top-0 right-0 w-2 h-2 bg-light-pink rounded-full border-2 border-charcoal"></span>
-            </button>
-            <div className="flex items-center gap-3 pl-6 border-l border-white/20">
+            <Link
+              to="/profile"
+              className="flex items-center gap-3 pl-6 border-l border-white/20 group hover:opacity-80 transition-opacity"
+            >
               <div className="text-right hidden sm:block">
-                <p className="text-sm font-bold text-white leading-tight capitalize">
+                <p className="text-sm font-bold text-white leading-tight capitalize group-hover:text-soft-pink transition-colors">
                   {user.name}
                 </p>
                 <p className="text-[10px] text-soft-pink uppercase tracking-widest">
                   Senior {user.role}
                 </p>
               </div>
-              <div className="w-10 h-10 rounded-full overflow-hidden border border-soft-pink/20 bg-dark-gray flex items-center justify-center">
+              <div className="w-10 h-10 rounded-full overflow-hidden border border-soft-pink/20 bg-dark-gray flex items-center justify-center group-hover:border-soft-pink transition-colors">
                 <span className="font-bold text-soft-pink">
                   {user.name.charAt(0).toUpperCase()}
                 </span>
               </div>
-            </div>
+            </Link>
           </div>
         </header>
 
@@ -312,6 +311,13 @@ export default function Dashboard() {
         >
           <span className="material-symbols-outlined">analytics</span>
           <span className="text-[10px] font-bold">Rep</span>
+        </Link>
+        <Link
+          className="flex flex-col items-center gap-1 text-white/40 hover:text-white"
+          to="/profile"
+        >
+          <span className="material-symbols-outlined">person</span>
+          <span className="text-[10px] font-bold">Profil</span>
         </Link>
         <button
           onClick={handleLogout}
