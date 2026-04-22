@@ -10,6 +10,8 @@ import Reports from "./components/report";
 import CreateEvent from "./components/createEvent";
 
 import Home from "./pages/home";
+import CreateEvent from "./components/createEvent";
+
 // Buat komponen Home sementara (atau import dari pages/home jika sudah ada)
 
 export default function App() {
