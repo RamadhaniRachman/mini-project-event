@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Link } from "react-router-dom"; // Tambahkan ini
+import { Link } from "react-router-dom";
 
 export default function Profile() {
   const [user, setUser] = useState<{
@@ -23,12 +23,21 @@ export default function Profile() {
   const [showNew, setShowNew] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
 
-  // 🔴 MENU SETTING STATE (Ubah default ke history agar langsung muncul pesanan)
+  // MENU SETTING STATE
   const [activeMenu, setActiveMenu] = useState("history");
 
-  // 🔴 STATE RIWAYAT TRANSAKSI
+  // STATE RIWAYAT TRANSAKSI
   const [transactions, setTransactions] = useState<any[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(true);
+
+  // 🔴 STATE UNTUK MODAL ULASAN 🔴
+  const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
+  const [reviewEventId, setReviewEventId] = useState<number | null>(null);
+  const [reviewEventTitle, setReviewEventTitle] = useState("");
+  const [rating, setRating] = useState(5);
+  const [feedback, setFeedback] = useState("");
+  const [suggestions, setSuggestions] = useState("");
+  const [isSubmittingReview, setIsSubmittingReview] = useState(false);
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -42,16 +51,15 @@ export default function Profile() {
     const userData = JSON.parse(userString);
     setUser(userData);
 
-    // Pre-fill form dengan data user
     setFullName(userData.name || "");
     setUsername(userData.name?.toLowerCase().replace(/\s+/g, "_") || "");
     setEmail(userData.email || "");
-    setPhone("+62 812 3456 7890"); // Placeholder
+    setPhone("+62 812 3456 7890");
     setBio(
       "Penikmat konser dan festival musik sejati. Selalu mencari barisan terdepan di setiap stage!",
     );
 
-    // 🔴 FETCH RIWAYAT TRANSAKSI
+    // FETCH RIWAYAT TRANSAKSI
     const fetchHistory = async () => {
       try {
         const response = await fetch(
@@ -80,7 +88,6 @@ export default function Profile() {
     window.location.href = "/login";
   };
 
-  // --- HANDLER UPDATE PROFIL ---
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     const formData = new FormData();
@@ -110,7 +117,6 @@ export default function Profile() {
     }
   };
 
-  // --- HANDLER GANTI PASSWORD ---
   const handleSavePassword = async (e: React.FormEvent) => {
     e.preventDefault();
     if (newPassword !== confirmPassword) {
@@ -148,7 +154,50 @@ export default function Profile() {
     window.history.back();
   };
 
-  // 🔴 HELPER FORMAT STATUS TRANSAKSI
+  // 🔴 HANDLER BUKA MODAL REVIEW
+  const openReviewModal = (eventId: number, eventTitle: string) => {
+    setReviewEventId(eventId);
+    setReviewEventTitle(eventTitle);
+    setRating(5); // Default Bintang 5
+    setFeedback("");
+    setSuggestions("");
+    setIsReviewModalOpen(true);
+  };
+
+  // 🔴 HANDLER KIRIM REVIEW
+  const handleSubmitReview = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmittingReview(true);
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch("http://localhost:8000/api/reviews", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          eventId: reviewEventId,
+          rating,
+          feedback,
+          suggestions,
+        }),
+      });
+      const result = await res.json();
+
+      if (res.ok) {
+        alert("Terima kasih! Ulasan Anda berhasil dikirim.");
+        setIsReviewModalOpen(false);
+      } else {
+        alert(result.message);
+      }
+    } catch (error) {
+      alert("Gagal mengirim ulasan jaringan.");
+    } finally {
+      setIsSubmittingReview(false);
+    }
+  };
+
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "pending":
@@ -200,34 +249,34 @@ export default function Profile() {
     );
   }
 
-  const getPasswordStrength = () => {
-    if (newPassword.length === 0) return 0;
-    if (newPassword.length < 6) return 1;
-    if (newPassword.length < 10) return 2;
-    return 4;
-  };
-  const strength = getPasswordStrength();
+  const strength =
+    newPassword.length === 0
+      ? 0
+      : newPassword.length < 6
+        ? 1
+        : newPassword.length < 10
+          ? 2
+          : 4;
 
   return (
     <div className="dark bg-charcoal font-body text-white min-h-screen selection:bg-soft-pink selection:text-charcoal pb-24 md:pb-0">
-      {/* TopAppBar */}
-      <header className="fixed top-0 w-full z-50 bg-charcoal/80 backdrop-blur-[20px] shadow-[0px_10px_30px_rgba(0,0,0,0.3)] border-b border-white/5">
+      {/* HEADER NAVBAR */}
+      <header className="fixed top-0 w-full z-50 bg-charcoal/80 backdrop-blur-[20px] shadow-lg border-b border-white/5">
         <div className="flex justify-between items-center px-6 py-4 w-full max-w-7xl mx-auto">
           <div className="text-2xl font-black italic text-soft-pink tracking-tighter font-headline uppercase">
             NEON STAGE
           </div>
-
           <nav className="hidden md:flex gap-8 items-center font-headline tracking-tight">
             {user.role === "organizer" ? (
               <a
-                className="text-white/60 hover:text-soft-pink px-3 py-1 transition-all duration-300"
+                className="text-white/60 hover:text-soft-pink px-3 py-1 transition-all"
                 href="/dashboard"
               >
                 Dashboard
               </a>
             ) : (
               <a
-                className="text-white/60 hover:text-soft-pink px-3 py-1 transition-all duration-300"
+                className="text-white/60 hover:text-soft-pink px-3 py-1 transition-all"
                 href="/"
               >
                 Home
@@ -240,7 +289,6 @@ export default function Profile() {
               Profile
             </a>
           </nav>
-
           <div className="flex items-center gap-4">
             <div className="group relative">
               <div className="w-10 h-10 rounded-full overflow-hidden border border-soft-pink/30 bg-dark-gray flex items-center justify-center cursor-pointer hover:border-soft-pink transition-colors">
@@ -251,7 +299,7 @@ export default function Profile() {
               <div className="absolute right-0 mt-2 w-32 bg-dark-gray border border-white/10 rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all">
                 <button
                   onClick={handleLogout}
-                  className="w-full text-left px-4 py-3 text-sm text-red-400 hover:bg-charcoal rounded-lg font-medium transition-colors"
+                  className="w-full text-left px-4 py-3 text-sm text-red-400 hover:bg-charcoal rounded-lg font-medium"
                 >
                   Logout
                 </button>
@@ -262,7 +310,6 @@ export default function Profile() {
       </header>
 
       <main className="pt-28 pb-32 px-4 md:px-8 max-w-6xl mx-auto">
-        {/* Editorial Header Section */}
         <div className="mb-12 relative">
           <h1 className="text-6xl md:text-7xl font-black italic text-white/5 absolute -top-8 -left-4 select-none uppercase tracking-tighter font-headline">
             Profile
@@ -277,7 +324,7 @@ export default function Profile() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-12 gap-8 items-start">
-          {/* Sidebar Navigation */}
+          {/* SIDEBAR */}
           <aside className="md:col-span-3 space-y-2 sticky top-28">
             <button
               onClick={() => setActiveMenu("history")}
@@ -301,11 +348,11 @@ export default function Profile() {
             </button>
           </aside>
 
-          {/* Main Form Canvas */}
+          {/* MAIN KONTEN */}
           <div className="md:col-span-9 bg-dark-gray border border-white/5 rounded-xl p-6 md:p-10 min-h-[500px] shadow-2xl relative overflow-hidden">
             <div className="absolute top-0 right-0 w-32 h-32 bg-soft-pink/5 rounded-full -mr-16 -mt-16 blur-3xl pointer-events-none"></div>
 
-            {/* ===================== MENU 1: PESANAN SAYA (BARU) ===================== */}
+            {/* TAB 1: PESANAN SAYA */}
             {activeMenu === "history" && (
               <div className="animate-in fade-in duration-300 space-y-6">
                 <div className="mb-8">
@@ -331,86 +378,121 @@ export default function Profile() {
                     </p>
                     <Link
                       to="/"
-                      className="text-charcoal bg-soft-pink font-bold px-8 py-3 rounded-xl hover:brightness-110 transition-all shadow-[0_0_15px_rgba(255,143,199,0.3)] uppercase tracking-widest text-sm"
+                      className="text-charcoal bg-soft-pink font-bold px-8 py-3 rounded-xl hover:brightness-110 transition-all uppercase tracking-widest text-sm"
                     >
                       Eksplor Event
                     </Link>
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {transactions.map((trx) => (
-                      <div
-                        key={trx.id}
-                        className="bg-charcoal border border-white/5 rounded-xl p-6 hover:border-soft-pink/30 transition-all flex flex-col sm:flex-row gap-6 shadow-lg relative overflow-hidden group"
-                      >
-                        <div className="flex-1 space-y-3 relative z-10">
-                          <div className="flex items-center justify-between mb-2">
-                            <span className="text-[11px] font-bold text-white/40 tracking-widest">
-                              ORDER ID: #TRX-{trx.id}
-                            </span>
-                            {getStatusBadge(trx.status)}
+                    {transactions.map((trx) => {
+                      // 🔴 CEK APAKAH WAKTU EVENT SUDAH LEWAT 🔴
+                      const isEventPast =
+                        new Date(trx.event.event_date).getTime() <
+                        new Date().getTime();
+                      // const canReview = trx.status === "success" && isEventPast;
+                      // 🔴 UNTUK TESTING: Munculkan tombol asalkan statusnya success (Abaikan waktu event)
+                      const canReview = trx.status === "success";
+
+                      return (
+                        <div
+                          key={trx.id}
+                          className="bg-charcoal border border-white/5 rounded-xl p-6 hover:border-soft-pink/30 transition-all flex flex-col sm:flex-row gap-6 shadow-lg relative overflow-hidden group"
+                        >
+                          <div className="flex-1 space-y-3 relative z-10">
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-[11px] font-bold text-white/40 tracking-widest">
+                                ORDER ID: #TRX-{trx.id}
+                              </span>
+                              {getStatusBadge(trx.status)}
+                            </div>
+                            <h3 className="font-headline font-black text-xl text-white uppercase italic tracking-tighter line-clamp-1 group-hover:text-soft-pink transition-colors">
+                              {trx.event.title}
+                            </h3>
+                            <div className="text-sm text-white/60 space-y-1">
+                              <p>
+                                <span className="text-soft-pink font-bold">
+                                  {trx.quantity}x
+                                </span>{" "}
+                                {trx.ticket_type.name}
+                              </p>
+                              <p className="flex items-center gap-1 text-[11px] uppercase tracking-widest">
+                                <span className="material-symbols-outlined text-[14px]">
+                                  event
+                                </span>{" "}
+                                {new Date(
+                                  trx.event.event_date,
+                                ).toLocaleDateString("id-ID", {
+                                  day: "numeric",
+                                  month: "long",
+                                  year: "numeric",
+                                })}
+                              </p>
+                            </div>
                           </div>
-                          <h3 className="font-headline font-black text-xl text-white uppercase italic tracking-tighter line-clamp-1 group-hover:text-soft-pink transition-colors">
-                            {trx.event.title}
-                          </h3>
-                          <div className="text-sm text-white/60 space-y-1">
-                            <p>
-                              <span className="text-soft-pink font-bold">
-                                {trx.quantity}x
-                              </span>{" "}
-                              {trx.ticket_type.name}
-                            </p>
-                            <p className="flex items-center gap-1 text-[11px] uppercase tracking-widest">
-                              <span className="material-symbols-outlined text-[14px]">
-                                event
-                              </span>{" "}
-                              {new Date(
-                                trx.event.event_date,
-                              ).toLocaleDateString("id-ID", {
-                                day: "numeric",
-                                month: "long",
-                                year: "numeric",
-                              })}
-                            </p>
+
+                          <div className="flex flex-col justify-between sm:items-end border-t sm:border-t-0 sm:border-l border-white/10 pt-4 sm:pt-0 sm:pl-6 min-w-[160px] relative z-10">
+                            <div className="text-left sm:text-right">
+                              <p className="text-[10px] text-white/40 uppercase tracking-widest">
+                                Total Bayar
+                              </p>
+                              <p className="font-black text-lg text-white">
+                                Rp {trx.final_price.toLocaleString("id-ID")}
+                              </p>
+                            </div>
+
+                            <div className="mt-4 sm:mt-0 flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                              {/* Jika masih belum sukses/selesai, cukup 1 tombol biasa */}
+                              {trx.status === "pending" ||
+                              trx.status === "rejected" ? (
+                                <Link
+                                  to={`/transactions/${trx.id}`}
+                                  className="w-full px-6 py-3 rounded-xl text-center text-xs font-bold uppercase tracking-widest stage-gradient text-charcoal shadow-[0_0_15px_rgba(255,143,199,0.3)] hover:scale-105 active:scale-95 transition-all"
+                                >
+                                  Upload Bukti
+                                </Link>
+                              ) : (
+                                <>
+                                  <Link
+                                    to={`/transactions/${trx.id}`}
+                                    className="px-6 py-2 rounded-xl text-center text-xs font-bold uppercase tracking-widest border border-white/20 text-white hover:bg-white/10 transition-all"
+                                  >
+                                    Detail
+                                  </Link>
+
+                                  {/* 🔴 TOMBOL BERI ULASAN MUNCUL DI SINI JIKA BISA DI-REVIEW 🔴 */}
+                                  {canReview && (
+                                    <button
+                                      onClick={() =>
+                                        openReviewModal(
+                                          trx.event_id,
+                                          trx.event.title,
+                                        )
+                                      }
+                                      className="px-6 py-2 rounded-xl text-center text-xs font-bold uppercase tracking-widest border border-yellow-400 text-yellow-400 hover:bg-yellow-400/10 transition-all flex items-center justify-center gap-1"
+                                    >
+                                      <span className="material-symbols-outlined text-[14px]">
+                                        star
+                                      </span>{" "}
+                                      Ulasan
+                                    </button>
+                                  )}
+                                </>
+                              )}
+                            </div>
                           </div>
                         </div>
-
-                        <div className="flex flex-col justify-between sm:items-end border-t sm:border-t-0 sm:border-l border-white/10 pt-4 sm:pt-0 sm:pl-6 min-w-[160px] relative z-10">
-                          <div className="text-left sm:text-right">
-                            <p className="text-[10px] text-white/40 uppercase tracking-widest">
-                              Total Bayar
-                            </p>
-                            <p className="font-black text-lg text-white">
-                              Rp {trx.final_price.toLocaleString("id-ID")}
-                            </p>
-                          </div>
-
-                          <Link
-                            to={`/transactions/${trx.id}`}
-                            className={`mt-4 sm:mt-0 w-full sm:w-auto px-6 py-3 rounded-xl text-center text-xs font-bold uppercase tracking-widest transition-all ${
-                              trx.status === "pending" ||
-                              trx.status === "rejected"
-                                ? "stage-gradient text-charcoal shadow-[0_0_15px_rgba(255,143,199,0.3)] hover:scale-105 active:scale-95"
-                                : "bg-white/5 border border-white/10 text-white hover:bg-white/10 hover:border-soft-pink/50"
-                            }`}
-                          >
-                            {trx.status === "pending" ||
-                            trx.status === "rejected"
-                              ? "Upload Bukti"
-                              : "Lihat E-Ticket"}
-                          </Link>
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </div>
             )}
 
-            {/* ===================== MENU 2: GENERAL (PROFIL) ===================== */}
+            {/* TAB 2: GENERAL (PROFIL) */}
             {activeMenu === "general" && (
               <div className="animate-in fade-in duration-300">
-                {/* ... (Semua isi UI Profil Anda diletakkan di sini, tidak ada yang diubah) ... */}
+                {/* Kode form profil asli Anda */}
                 <section className="flex flex-col md:flex-row items-center gap-8 mb-12">
                   <div className="relative group">
                     <div className="w-32 h-32 md:w-40 md:h-40 rounded-full overflow-hidden border-4 border-charcoal bg-charcoal shadow-[0_0_20px_rgba(255,143,199,0.15)] flex items-center justify-center">
@@ -526,10 +608,10 @@ export default function Profile() {
               </div>
             )}
 
-            {/* ===================== MENU 3: SECURITY (PASSWORD) ===================== */}
+            {/* TAB 3: SECURITY (PASSWORD) */}
             {activeMenu === "security" && (
               <div className="animate-in fade-in duration-300">
-                {/* ... (UI Security Anda diletakkan di sini, utuh 100%) ... */}
+                {/* Kode form security asli Anda */}
                 <div className="mb-8">
                   <h3 className="text-2xl font-bold font-headline text-white mb-2 uppercase tracking-tighter">
                     Keamanan & Kata Sandi
@@ -655,6 +737,91 @@ export default function Profile() {
           </div>
         </div>
       </main>
+
+      {/* 🔴 MODAL POPUP REVIEW 🔴 */}
+      {isReviewModalOpen && (
+        <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
+          <div className="bg-dark-gray border border-white/10 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden relative">
+            <div className="p-6 md:p-8">
+              <div className="flex justify-between items-start mb-6">
+                <div>
+                  <h3 className="text-2xl font-headline font-black italic uppercase tracking-tighter text-white">
+                    Beri Ulasan
+                  </h3>
+                  <p className="text-white/60 text-sm mt-1">
+                    {reviewEventTitle}
+                  </p>
+                </div>
+                <button
+                  onClick={() => setIsReviewModalOpen(false)}
+                  className="text-white/40 hover:text-soft-pink transition-colors"
+                >
+                  <span className="material-symbols-outlined">close</span>
+                </button>
+              </div>
+
+              <form onSubmit={handleSubmitReview} className="space-y-6">
+                {/* 5 BINTANG INTERAKTIF */}
+                <div className="flex flex-col items-center justify-center py-4 bg-charcoal rounded-xl border border-white/5">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-white/40 mb-3">
+                    Rating Anda
+                  </p>
+                  <div className="flex gap-2">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <span
+                        key={star}
+                        onClick={() => setRating(star)}
+                        className={`material-symbols-outlined text-4xl cursor-pointer transition-all hover:scale-110 ${star <= rating ? "text-yellow-400" : "text-white/10"}`}
+                        style={{
+                          fontVariationSettings:
+                            star <= rating ? "'FILL' 1" : "'FILL' 0",
+                        }}
+                      >
+                        star
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-xs uppercase font-bold tracking-widest text-white/60">
+                    Ulasan Event
+                  </label>
+                  <textarea
+                    className="w-full bg-charcoal border border-white/10 rounded-lg p-4 text-white focus:ring-1 focus:ring-soft-pink/50 outline-none resize-none text-sm"
+                    rows={3}
+                    placeholder="Ceritakan pengalaman seru Anda di acara ini!"
+                    value={feedback}
+                    onChange={(e) => setFeedback(e.target.value)}
+                    required
+                  ></textarea>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-xs uppercase font-bold tracking-widest text-white/60">
+                    Saran (Opsional)
+                  </label>
+                  <textarea
+                    className="w-full bg-charcoal border border-white/10 rounded-lg p-4 text-white focus:ring-1 focus:ring-soft-pink/50 outline-none resize-none text-sm"
+                    rows={2}
+                    placeholder="Ada saran untuk penyelenggara di masa depan?"
+                    value={suggestions}
+                    onChange={(e) => setSuggestions(e.target.value)}
+                  ></textarea>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={isSubmittingReview || !feedback}
+                  className="w-full stage-gradient text-charcoal font-bold text-lg py-4 rounded-xl uppercase tracking-widest shadow-[0_0_15px_rgba(255,143,199,0.3)] hover:brightness-110 active:scale-95 transition-all disabled:opacity-50"
+                >
+                  {isSubmittingReview ? "Mengirim..." : "Kirim Ulasan"}
+                </button>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

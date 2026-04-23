@@ -168,7 +168,7 @@ export const getOrganizerEvents = async (
   }
 };
 
-// 4. Fungsi untuk mengambil data 1 event (Untuk mengisi form saat baru dibuka)
+// 4. Fungsi untuk mengambil data 1 event
 export const getEventById = async (
   req: Request,
   res: Response,
@@ -178,7 +178,12 @@ export const getEventById = async (
 
     const event = await prisma.events.findUnique({
       where: { id: eventId },
-      include: { tickets: true }, // Jangan lupa ikut bawa data tiketnya!
+      include: {
+        tickets: true,
+        users: {
+          select: { name: true },
+        },
+      },
     });
 
     if (!event) {
