@@ -188,12 +188,6 @@ export default function Promotions() {
                 Dashboard
               </a>
               <a
-                className="text-white/60 font-headline font-bold tracking-tight hover:text-soft-pink transition-colors"
-                href="/events"
-              >
-                Events
-              </a>
-              <a
                 className="text-soft-pink font-bold border-b-2 border-soft-pink font-headline tracking-tight"
                 href="/promotions"
               >

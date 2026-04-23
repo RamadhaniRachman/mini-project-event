@@ -74,8 +74,6 @@ export default function DashboardOverview() {
   };
 
   // Kalkulasi sederhana untuk garis SVG lingkar kapasitas (Max 440)
-  const circleOffset = 440 - (440 * stats.occupancyRate) / 100;
-
   // Mock data Tren (Karena kita tidak menarik data API Reports di halaman ini, kita buat visual dummy yang bereaksi thd klik)
   const trendBars =
     trendMode === "Bulanan"
@@ -155,111 +153,7 @@ export default function DashboardOverview() {
         </div>
       </section>
 
-      {/* --- Section 2: Data Visualization --- */}
-      <section className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Tren Penjualan */}
-        <div className="lg:col-span-2 bg-dark-gray border border-white/5 rounded-2xl p-8 relative overflow-hidden">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-8 relative z-10 gap-4">
-            <div>
-              <h3 className="font-headline text-xl font-bold">
-                Tren Penjualan
-              </h3>
-              <p className="text-white/70 text-xs">
-                Aktivitas {trendMode.toLowerCase()}
-              </p>
-            </div>
-            <div className="inline-flex bg-charcoal p-1 rounded-xl border border-white/5">
-              <button
-                onClick={() => setTrendMode("Harian")}
-                className={`px-4 py-1.5 rounded-lg text-xs font-bold uppercase transition-all ${trendMode === "Harian" ? "bg-dark-gray text-soft-pink" : "text-white/40 hover:text-white"}`}
-              >
-                Harian
-              </button>
-              <button
-                onClick={() => setTrendMode("Bulanan")}
-                className={`px-4 py-1.5 rounded-lg text-xs font-bold uppercase transition-all ${trendMode === "Bulanan" ? "bg-dark-gray text-soft-pink" : "text-white/40 hover:text-white"}`}
-              >
-                Bulanan
-              </button>
-            </div>
-          </div>
-          <div className="h-48 w-full flex items-end justify-between gap-2 px-4 relative">
-            <div className="absolute inset-0 flex items-end justify-between px-4 pb-8 opacity-20 pointer-events-none">
-              <div className="w-full border-b border-white/30 h-1/4"></div>
-              <div className="w-full border-b border-white/30 h-2/4"></div>
-              <div className="w-full border-b border-white/30 h-3/4"></div>
-            </div>
-            {trendBars.map((height, i) => (
-              <div
-                key={i}
-                style={{ height: `${height}%` }}
-                className="flex-1 bg-soft-pink/30 hover:bg-soft-pink transition-colors rounded-t-sm relative group cursor-pointer"
-              >
-                {height === Math.max(...trendBars) && (
-                  <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-soft-pink text-charcoal px-2 py-1 rounded text-[10px] font-bold">
-                    Puncak
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Kapasitas Venue */}
-        <div className="bg-dark-gray border border-white/5 rounded-2xl p-8 flex flex-col justify-between overflow-hidden relative">
-          <div className="absolute -right-10 -top-10 w-40 h-40 bg-soft-pink/10 blur-[80px] rounded-full pointer-events-none"></div>
-          <div>
-            <h3 className="font-headline text-xl font-bold">
-              Kapasitas Global
-            </h3>
-            <p className="text-white/70 text-xs">
-              Rata-rata okupansi semua event
-            </p>
-          </div>
-          <div className="flex-1 flex flex-col items-center justify-center space-y-6 mt-4">
-            <div className="relative w-40 h-40 flex items-center justify-center">
-              <svg className="w-full h-full -rotate-90">
-                <circle
-                  cx="80"
-                  cy="80"
-                  fill="transparent"
-                  r="70"
-                  stroke="#1C1C1E"
-                  strokeWidth="12"
-                ></circle>
-                <circle
-                  cx="80"
-                  cy="80"
-                  fill="transparent"
-                  r="70"
-                  stroke="#FF8FC7"
-                  strokeDasharray="440"
-                  strokeDashoffset={isLoading ? 440 : circleOffset}
-                  strokeLinecap="round"
-                  strokeWidth="12"
-                  className="transition-all duration-1000 ease-out"
-                ></circle>
-              </svg>
-              <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <span className="text-4xl font-black text-soft-pink">
-                  {isLoading ? "0" : stats.occupancyRate}%
-                </span>
-                <span className="text-[10px] font-label uppercase tracking-widest opacity-60">
-                  Terisi
-                </span>
-              </div>
-            </div>
-            <div className="w-full space-y-3">
-              <div className="flex justify-between text-xs">
-                <span className="text-white/70">Tiket Terjual</span>
-                <span className="font-bold">{stats.totalTicketsSold}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* --- Section 3: My Events Grid --- */}
+      {/* --- Section 2: My Events Grid --- */}
       <section className="space-y-6">
         <div className="flex items-center justify-between">
           <h3 className="font-headline text-2xl font-extrabold tracking-tight">

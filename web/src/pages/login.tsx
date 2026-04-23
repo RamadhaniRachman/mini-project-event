@@ -139,7 +139,7 @@ export default function Login() {
                       Kata Sandi
                     </label>
                     <a
-                      href="#"
+                      href="/forgot-password"
                       className="text-[10px] font-label font-semibold text-light-pink hover:text-soft-pink transition-colors"
                     >
                       Lupa Kata Sandi?
