@@ -5,6 +5,7 @@ export default function CreateEvent() {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
+  const API_URL = import.meta.env.VITE_PROJECT_API;
 
   // 1. State untuk menampung ketikan user
   const [formData, setFormData] = useState({
@@ -102,7 +103,7 @@ export default function CreateEvent() {
 
       // Catatan Penting: Saat pakai FormData dan Fetch, JANGAN set Content-Type manual.
       // Browser akan otomatis menyetelnya menjadi multipart/form-data beserta kode boundary-nya.
-      const response = await fetch("http://localhost:8000/api/events", {
+      const response = await fetch(`${API_URL}/api/events`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,

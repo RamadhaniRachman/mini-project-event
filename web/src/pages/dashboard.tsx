@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { Outlet, Link, useLocation } from "react-router-dom";
 
 export default function Dashboard() {
@@ -101,6 +101,50 @@ export default function Dashboard() {
             </span>
           </Link>
           <Link
+            to="/dashboard/attendees"
+            className={`flex items-center gap-4 px-4 py-3.5 font-semibold transition-all rounded-lg ${
+              location.pathname.includes("/attendees")
+                ? "text-soft-pink bg-soft-pink/10 border-r-4 border-soft-pink rounded-l-lg rounded-r-none"
+                : "text-white/40 font-medium hover:bg-white/5 hover:text-white"
+            }`}
+          >
+            <span
+              className="material-symbols-outlined"
+              style={{
+                fontVariationSettings: location.pathname.includes("/attendees")
+                  ? "'FILL' 1"
+                  : "'FILL' 0",
+              }}
+            >
+              group
+            </span>
+            <span className="font-label uppercase tracking-widest text-xs">
+              Attendees
+            </span>
+          </Link>
+          <Link
+            to="/promotions"
+            className={`flex items-center gap-4 px-4 py-3.5 font-semibold transition-all rounded-lg ${
+              location.pathname.includes("/promotions")
+                ? "text-soft-pink bg-soft-pink/10 border-r-4 border-soft-pink rounded-l-lg rounded-r-none"
+                : "text-white/40 font-medium hover:bg-white/5 hover:text-white"
+            }`}
+          >
+            <span
+              className="material-symbols-outlined"
+              style={{
+                fontVariationSettings: location.pathname.includes("/promotions")
+                  ? "'FILL' 1"
+                  : "'FILL' 0",
+              }}
+            >
+              local_offer
+            </span>
+            <span className="font-label uppercase tracking-widest text-xs">
+              Promotions
+            </span>
+          </Link>
+          <Link
             to="/dashboard/transactions"
             className={`flex items-center gap-4 px-4 py-3.5 font-semibold transition-all rounded-lg ${
               location.pathname.includes("/transactions")
@@ -156,29 +200,27 @@ export default function Dashboard() {
             </div>
           </div>
           <div className="flex items-center gap-6">
-            <button className="relative text-white/60 hover:text-soft-pink transition-colors">
-              <span className="material-symbols-outlined">notifications</span>
-              <span className="absolute top-0 right-0 w-2 h-2 bg-light-pink rounded-full border-2 border-charcoal"></span>
-            </button>
-            <div className="flex items-center gap-3 pl-6 border-l border-white/20">
+            <Link
+              to="/profile"
+              className="flex items-center gap-3 pl-6 border-l border-white/20 group hover:opacity-80 transition-opacity"
+            >
               <div className="text-right hidden sm:block">
-                <p className="text-sm font-bold text-white leading-tight capitalize">
+                <p className="text-sm font-bold text-white leading-tight capitalize group-hover:text-soft-pink transition-colors">
                   {user.name}
                 </p>
                 <p className="text-[10px] text-soft-pink uppercase tracking-widest">
                   Senior {user.role}
                 </p>
               </div>
-              <div className="w-10 h-10 rounded-full overflow-hidden border border-soft-pink/20 bg-dark-gray flex items-center justify-center">
+              <div className="w-10 h-10 rounded-full overflow-hidden border border-soft-pink/20 bg-dark-gray flex items-center justify-center group-hover:border-soft-pink transition-colors">
                 <span className="font-bold text-soft-pink">
                   {user.name.charAt(0).toUpperCase()}
                 </span>
               </div>
-            </div>
+            </Link>
           </div>
         </header>
 
-        {/* --- LUBANG KONTEN DINAMIS --- */}
         <div className="flex-1 w-full">
           <Outlet context={{ user }} />
         </div>
@@ -210,10 +252,42 @@ export default function Dashboard() {
         </Link>
         <Link
           className="flex flex-col items-center gap-1 text-white/40 hover:text-white"
-          to="/events"
+          to="/dashboard/events"
         >
           <span className="material-symbols-outlined">event</span>
           <span className="text-[10px] font-bold">Event</span>
+        </Link>
+        <Link
+          className={`flex flex-col items-center gap-1 ${location.pathname.includes("/attendees") ? "text-soft-pink" : "text-white/40"}`}
+          to="/dashboard/attendees"
+        >
+          <span
+            className="material-symbols-outlined"
+            style={{
+              fontVariationSettings: location.pathname.includes("/attendees")
+                ? "'FILL' 1"
+                : "'FILL' 0",
+            }}
+          >
+            group
+          </span>
+          <span className="text-[10px] font-bold">Peserta</span>
+        </Link>
+        <Link
+          className={`flex flex-col items-center gap-1 ${location.pathname.includes("/promotions") ? "text-soft-pink" : "text-white/40"}`}
+          to="/promotions"
+        >
+          <span
+            className="material-symbols-outlined"
+            style={{
+              fontVariationSettings: location.pathname.includes("/promotions")
+                ? "'FILL' 1"
+                : "'FILL' 0",
+            }}
+          >
+            local_offer
+          </span>
+          <span className="text-[10px] font-bold">Promo</span>
         </Link>
         <Link
           className={`flex flex-col items-center gap-1 ${location.pathname.includes("/transactions") ? "text-soft-pink" : "text-white/40"}`}
@@ -237,6 +311,13 @@ export default function Dashboard() {
         >
           <span className="material-symbols-outlined">analytics</span>
           <span className="text-[10px] font-bold">Rep</span>
+        </Link>
+        <Link
+          className="flex flex-col items-center gap-1 text-white/40 hover:text-white"
+          to="/profile"
+        >
+          <span className="material-symbols-outlined">person</span>
+          <span className="text-[10px] font-bold">Profil</span>
         </Link>
         <button
           onClick={handleLogout}
